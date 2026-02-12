@@ -17,6 +17,21 @@ export async function GET() {
       )
     }
 
+    // Fetch ALL courses for the user
+    const { data: courses, error: coursesError } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('name', { ascending: true })
+
+    if (coursesError) {
+      console.error('[Assignments API] Error fetching courses:', coursesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch courses' },
+        { status: 500 }
+      )
+    }
+
     // Calculate date 7 days ago for filtering submitted assignments
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -45,13 +60,17 @@ export async function GET() {
     }
 
     // Transform the data to include course_name at the top level
-    const transformedAssignments = assignments.map((assignment) => ({
+    const transformedAssignments = (assignments || []).map((assignment) => ({
       ...assignment,
       course_name: assignment.courses.name,
       course_code: assignment.courses.course_code,
     }))
 
-    return NextResponse.json(transformedAssignments)
+    // Return both courses and assignments as separate arrays
+    return NextResponse.json({
+      courses: courses || [],
+      assignments: transformedAssignments,
+    })
   } catch (error) {
     console.error('[Assignments API] Unexpected error:', error)
     return NextResponse.json(
@@ -60,3 +79,4 @@ export async function GET() {
     )
   }
 }
+

@@ -51,6 +51,13 @@ export default async function DashboardPage() {
 
   const hiddenCourses = userData.hidden_courses || []
 
+  // Fetch ALL courses for the user
+  const { data: allCourses } = await supabase
+    .from('courses')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('name', { ascending: true })
+
   // Fetch assignments with course information
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -70,36 +77,43 @@ export default async function DashboardPage() {
     .or(`due_at.gte.${new Date().toISOString()},submitted_at.gte.${sevenDaysAgo.toISOString()}`)
     .order('due_at', { ascending: true })
 
-  // Group assignments by course
+  // Create a map of courses with their assignments
   const courseMap = new Map<string, Course>()
 
+  // First, add ALL courses to the map (even those with no assignments)
+  if (allCourses) {
+    allCourses.forEach((course: any) => {
+      courseMap.set(course.canvas_course_id, {
+        id: course.id,
+        name: course.name,
+        course_code: course.course_code,
+        canvas_course_id: course.canvas_course_id,
+        assignments: [],
+      })
+    })
+  }
+
+  // Then, add assignments to their respective courses
   if (assignments) {
     assignments.forEach((assignment: any) => {
       const canvasCourseId = assignment.courses.canvas_course_id
+      const course = courseMap.get(canvasCourseId)
 
-      if (!courseMap.has(canvasCourseId)) {
-        courseMap.set(canvasCourseId, {
-          id: assignment.courses.id,
-          name: assignment.courses.name,
+      if (course) {
+        course.assignments.push({
+          id: assignment.id,
+          canvas_assignment_id: assignment.canvas_assignment_id,
+          canvas_course_id: assignment.canvas_course_id,
+          title: assignment.title,
+          description: assignment.description,
+          due_at: assignment.due_at,
+          points_possible: assignment.points_possible,
+          status: assignment.status,
+          submitted_at: assignment.submitted_at,
+          course_name: assignment.courses.name,
           course_code: assignment.courses.course_code,
-          canvas_course_id: canvasCourseId,
-          assignments: [],
         })
       }
-
-      courseMap.get(canvasCourseId)!.assignments.push({
-        id: assignment.id,
-        canvas_assignment_id: assignment.canvas_assignment_id,
-        canvas_course_id: assignment.canvas_course_id,
-        title: assignment.title,
-        description: assignment.description,
-        due_at: assignment.due_at,
-        points_possible: assignment.points_possible,
-        status: assignment.status,
-        submitted_at: assignment.submitted_at,
-        course_name: assignment.courses.name,
-        course_code: assignment.courses.course_code,
-      })
     })
   }
 

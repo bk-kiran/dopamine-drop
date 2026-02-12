@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useToast } from '@/components/ui/use-toast'
 
 interface Assignment {
   id: string
@@ -70,6 +71,7 @@ function StatusBadge({ status }: { status: 'pending' | 'submitted' | 'missing' }
 export function CourseSection({ course, assignments, isHidden, onToggleHide }: CourseSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
+  const { toast } = useToast()
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -88,8 +90,23 @@ export function CourseSection({ course, assignments, isHidden, onToggleHide }: C
 
   const handleToggleHide = async () => {
     setIsToggling(true)
+    const willBeHidden = !isHidden
     try {
-      await onToggleHide(course.canvas_course_id, !isHidden)
+      await onToggleHide(course.canvas_course_id, willBeHidden)
+
+      // Show toast notification
+      if (willBeHidden) {
+        toast({
+          title: `${course.course_code} hidden`,
+          description: "Click 'Show all' at the bottom to restore.",
+          duration: 3000,
+        })
+      } else {
+        toast({
+          title: `${course.course_code} restored`,
+          duration: 3000,
+        })
+      }
     } finally {
       setIsToggling(false)
     }
@@ -117,6 +134,12 @@ export function CourseSection({ course, assignments, isHidden, onToggleHide }: C
               )}
             </Button>
             <span>{course.name}</span>
+            <Badge
+              variant="secondary"
+              className={assignments.length === 0 ? 'opacity-50' : ''}
+            >
+              {assignments.length}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-normal text-muted-foreground">
@@ -149,29 +172,35 @@ export function CourseSection({ course, assignments, isHidden, onToggleHide }: C
             style={{ overflow: 'hidden' }}
           >
             <CardContent>
-              <div className="space-y-3">
-                {assignments.map((assignment) => {
-                  const status = getAssignmentStatus(assignment)
-                  return (
-                    <div
-                      key={assignment.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0 mr-4">
-                        <h3 className="font-semibold text-lg mb-1 truncate">
-                          {assignment.title}
-                        </h3>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span>Due: {formatDate(assignment.due_at)}</span>
-                          <span>•</span>
-                          <span>{assignment.points_possible} points</span>
+              {assignments.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No upcoming assignments
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {assignments.map((assignment) => {
+                    const status = getAssignmentStatus(assignment)
+                    return (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0 mr-4">
+                          <h3 className="font-semibold text-lg mb-1 truncate">
+                            {assignment.title}
+                          </h3>
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <span>Due: {formatDate(assignment.due_at)}</span>
+                            <span>•</span>
+                            <span>{assignment.points_possible} points</span>
+                          </div>
                         </div>
+                        <StatusBadge status={status} />
                       </div>
-                      <StatusBadge status={status} />
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </motion.div>
         )}
