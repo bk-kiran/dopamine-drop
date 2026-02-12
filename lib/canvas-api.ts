@@ -19,6 +19,16 @@ export interface CanvasAssignment {
   due_at: string | null
   points_possible: number
   course_id: number
+  submission?: CanvasSubmission | null
+}
+
+export interface CanvasSubmission {
+  id: number
+  user_id: number
+  assignment_id: number
+  submitted_at: string | null
+  workflow_state: string
+  late: boolean
 }
 
 export class CanvasClient {
@@ -83,13 +93,13 @@ export class CanvasClient {
   }
 
   /**
-   * Gets assignments for a specific course
+   * Gets assignments for a specific course with embedded submission data
    * @param courseId - The Canvas course ID
-   * @returns List of assignments ordered by due date
+   * @returns List of assignments ordered by due date, each with embedded submission data
    */
   async getAssignments(courseId: string): Promise<CanvasAssignment[]> {
     return this.get<CanvasAssignment[]>(
-      `/api/v1/courses/${courseId}/assignments?per_page=50&order_by=due_at`
+      `/api/v1/courses/${courseId}/assignments?per_page=50&order_by=due_at&include[]=submission`
     )
   }
 }

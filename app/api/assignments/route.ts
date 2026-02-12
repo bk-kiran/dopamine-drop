@@ -32,12 +32,12 @@ export async function GET() {
       )
     }
 
-    // Calculate date 7 days ago for filtering submitted assignments
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    // Calculate date 30 days ago for filtering submitted assignments
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     // Fetch assignments with course information
-    // Filter: future assignments OR submitted within last 7 days
+    // Filter: all pending assignments OR submitted within last 30 days
     const { data: assignments, error: assignmentsError } = await supabase
       .from('assignments')
       .select(`
@@ -48,7 +48,7 @@ export async function GET() {
         )
       `)
       .eq('user_id', user.id)
-      .or(`due_at.gte.${new Date().toISOString()},submitted_at.gte.${sevenDaysAgo.toISOString()}`)
+      .or(`status.eq.pending,submitted_at.gte.${thirtyDaysAgo.toISOString()}`)
       .order('due_at', { ascending: true })
 
     if (assignmentsError) {

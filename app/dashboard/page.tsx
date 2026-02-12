@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SyncButton } from './sync-button'
 import { DashboardClient } from './dashboard-client'
+import { AutoSync } from './auto-sync'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface Assignment {
@@ -38,10 +39,10 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch user data including Canvas token and hidden courses
+  // Fetch user data including Canvas token, hidden courses, and stats
   const { data: userData } = await supabase
     .from('users')
-    .select('canvas_token_encrypted, hidden_courses')
+    .select('canvas_token_encrypted, hidden_courses, total_points, streak_count')
     .eq('id', user.id)
     .single()
 
@@ -50,6 +51,10 @@ export default async function DashboardPage() {
   }
 
   const hiddenCourses = userData.hidden_courses || []
+  const userStats = {
+    total_points: userData.total_points || 0,
+    streak_count: userData.streak_count || 0,
+  }
 
   // Fetch ALL courses for the user
   const { data: allCourses } = await supabase
@@ -128,7 +133,22 @@ export default async function DashboardPage() {
             Your Canvas assignments and progress
           </p>
         </div>
-        <SyncButton />
+        <div className="flex items-center gap-3">
+          {/* Stats chips */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-full">
+            <span className="text-lg">🔥</span>
+            <span className="text-sm font-semibold text-orange-900">
+              {userStats.streak_count} day streak
+            </span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-full">
+            <span className="text-lg">⚡</span>
+            <span className="text-sm font-semibold text-purple-900">
+              {userStats.total_points} pts
+            </span>
+          </div>
+          <SyncButton />
+        </div>
       </div>
 
       {courses.length === 0 ? (
@@ -142,6 +162,8 @@ export default async function DashboardPage() {
       ) : (
         <DashboardClient courses={courses} hiddenCourses={hiddenCourses} />
       )}
+
+      <AutoSync />
     </div>
   )
 }
