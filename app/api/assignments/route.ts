@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
+import { api } from '@/convex/_generated/api'
 
 export async function GET() {
   try {
@@ -17,20 +19,14 @@ export async function GET() {
       )
     }
 
-    // Fetch ALL courses for the user
-    const { data: courses, error: coursesError } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('name', { ascending: true })
+    // Get Convex client and user ID
+    const convex = getConvexClient()
+    const convexUserId = await getConvexUserId(user.id)
 
-    if (coursesError) {
-      console.error('[Assignments API] Error fetching courses:', coursesError)
-      return NextResponse.json(
-        { error: 'Failed to fetch courses' },
-        { status: 500 }
-      )
-    }
+    // Fetch ALL courses for the user
+    const courses = await convex.query(api.courses.getAllCourses, {
+      userId: convexUserId,
+    })
 
     // Calculate date 30 days ago for filtering submitted assignments
     const thirtyDaysAgo = new Date()
@@ -38,32 +34,16 @@ export async function GET() {
 
     // Fetch assignments with course information
     // Filter: all pending assignments OR submitted within last 30 days
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('assignments')
-      .select(`
-        *,
-        courses!inner (
-          name,
-          course_code
-        )
-      `)
-      .eq('user_id', user.id)
-      .or(`status.eq.pending,submitted_at.gte.${thirtyDaysAgo.toISOString()}`)
-      .order('due_at', { ascending: true })
+    const assignments = await convex.query(api.assignments.getAssignmentsWithCourseInfo, {
+      userId: convexUserId,
+      includeSubmittedSince: thirtyDaysAgo.toISOString(),
+    })
 
-    if (assignmentsError) {
-      console.error('[Assignments API] Error fetching assignments:', assignmentsError)
-      return NextResponse.json(
-        { error: 'Failed to fetch assignments' },
-        { status: 500 }
-      )
-    }
-
-    // Transform the data to include course_name at the top level
+    // Transform the data to match expected format (Convex uses camelCase)
     const transformedAssignments = (assignments || []).map((assignment) => ({
       ...assignment,
-      course_name: assignment.courses.name,
-      course_code: assignment.courses.course_code,
+      course_name: assignment.courseName,
+      course_code: assignment.courseCode,
     }))
 
     // Return both courses and assignments as separate arrays

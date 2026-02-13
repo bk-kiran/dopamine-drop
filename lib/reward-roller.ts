@@ -1,4 +1,6 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import { getConvexClient } from './convex-client'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 
 interface Reward {
   id: string
@@ -8,16 +10,16 @@ interface Reward {
 }
 
 export async function rollReward({
-  userId,
+  convexUserId,
   totalPoints,
   pointsJustAwarded,
-  supabase,
 }: {
-  userId: string
+  convexUserId: Id<'users'>
   totalPoints: number
   pointsJustAwarded: number
-  supabase: SupabaseClient
 }): Promise<Reward | null> {
+  const convex = getConvexClient()
+
   // Check if crossed a 50-point milestone
   const previousMilestones = Math.floor((totalPoints - pointsJustAwarded) / 50)
   const currentMilestones = Math.floor(totalPoints / 50)
@@ -39,11 +41,9 @@ export async function rollReward({
   }
 
   // Fetch active rewards of that rarity
-  const { data: rewards } = await supabase
-    .from('rewards')
-    .select('*')
-    .eq('rarity', rarity)
-    .eq('is_active', true)
+  const rewards = await convex.query(api.rewards.getActiveRewardsByRarity, {
+    rarity,
+  })
 
   if (!rewards || rewards.length === 0) {
     return null // No rewards available
@@ -52,22 +52,12 @@ export async function rollReward({
   // Pick random reward
   const randomReward = rewards[Math.floor(Math.random() * rewards.length)]
 
-  // Insert into user_rewards
-  const { data: userReward } = await supabase
-    .from('user_rewards')
-    .insert({
-      user_id: userId,
-      reward_id: randomReward.id,
-      is_revealed: false,
-    })
-    .select(
-      `
-      *,
-      rewards (*)
-    `
-    )
-    .single()
+  // Insert into user_rewards and return the reward
+  const userReward = await convex.mutation(api.rewards.awardReward, {
+    userId: convexUserId,
+    rewardId: randomReward._id,
+  })
 
   // Return full reward object
-  return userReward?.rewards as Reward
+  return userReward?.reward as Reward
 }

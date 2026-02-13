@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { CanvasClient } from '@/lib/canvas-api'
 import { encryptToken } from '@/lib/encryption'
+import { getConvexClient } from '@/lib/convex-client'
+import { api } from '@/convex/_generated/api'
 
 export async function POST(request: Request) {
   try {
@@ -59,18 +61,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update the user's record in Supabase with encrypted token and Canvas info
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        canvas_token_encrypted: encrypted,
-        canvas_token_iv: iv,
-        canvas_user_id: canvasUser.id.toString(),
-        display_name: canvasUser.name,
+    // Update the user's record in Convex with encrypted token and Canvas info
+    const convex = getConvexClient()
+    try {
+      await convex.mutation(api.users.updateUser, {
+        authUserId: user.id,
+        data: {
+          canvasTokenEncrypted: encrypted,
+          canvasTokenIv: iv,
+          canvasUserId: canvasUser.id.toString(),
+          displayName: canvasUser.name,
+        },
       })
-      .eq('id', user.id)
-
-    if (updateError) {
+    } catch (updateError) {
       console.error('Failed to update user:', updateError)
       return NextResponse.json(
         { error: 'Failed to save Canvas token' },

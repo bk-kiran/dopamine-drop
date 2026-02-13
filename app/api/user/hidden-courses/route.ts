@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getConvexClient } from '@/lib/convex-client'
+import { api } from '@/convex/_generated/api'
 
 // GET - Fetch user's hidden courses
 export async function GET() {
@@ -17,22 +19,13 @@ export async function GET() {
       )
     }
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('hidden_courses')
-      .eq('id', user.id)
-      .single()
-
-    if (error) {
-      console.error('[Hidden Courses] Error fetching:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch hidden courses' },
-        { status: 500 }
-      )
-    }
+    const convex = getConvexClient()
+    const convexUser = await convex.query(api.users.getUser, {
+      authUserId: user.id,
+    })
 
     return NextResponse.json({
-      hidden_courses: data?.hidden_courses || [],
+      hidden_courses: convexUser?.hiddenCourses || [],
     })
   } catch (error) {
     console.error('[Hidden Courses] Unexpected error:', error)
@@ -76,21 +69,12 @@ export async function POST(request: Request) {
     }
 
     // Fetch current hidden courses
-    const { data: userData, error: fetchError } = await supabase
-      .from('users')
-      .select('hidden_courses')
-      .eq('id', user.id)
-      .single()
+    const convex = getConvexClient()
+    const convexUser = await convex.query(api.users.getUser, {
+      authUserId: user.id,
+    })
 
-    if (fetchError) {
-      console.error('[Hidden Courses] Error fetching user data:', fetchError)
-      return NextResponse.json(
-        { error: 'Failed to fetch user data' },
-        { status: 500 }
-      )
-    }
-
-    let hiddenCourses: string[] = userData?.hidden_courses || []
+    let hiddenCourses: string[] = convexUser?.hiddenCourses || []
 
     // Handle different actions
     if (action === 'clear') {
@@ -104,12 +88,12 @@ export async function POST(request: Request) {
     }
 
     // Update in database
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ hidden_courses: hiddenCourses })
-      .eq('id', user.id)
-
-    if (updateError) {
+    try {
+      await convex.mutation(api.users.updateUser, {
+        authUserId: user.id,
+        data: { hiddenCourses },
+      })
+    } catch (updateError) {
       console.error('[Hidden Courses] Error updating:', updateError)
       return NextResponse.json(
         { error: 'Failed to update hidden courses' },

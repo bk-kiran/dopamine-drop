@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,7 +30,7 @@ interface CourseSectionProps {
   course: Course
   assignments: Assignment[]
   isHidden: boolean
-  onToggleHide: (courseId: string, hide: boolean) => Promise<void>
+  supabaseUserId: string
 }
 
 function formatDate(dateString: string | null): string {
@@ -68,10 +70,13 @@ function StatusBadge({ status }: { status: 'pending' | 'submitted' | 'missing' }
   )
 }
 
-export function CourseSection({ course, assignments, isHidden, onToggleHide }: CourseSectionProps) {
+export function CourseSection({ course, assignments, isHidden, supabaseUserId }: CourseSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
   const { toast } = useToast()
+
+  // Use Convex mutation directly
+  const toggleHiddenCourse = useMutation(api.users.toggleHiddenCourse)
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -92,7 +97,12 @@ export function CourseSection({ course, assignments, isHidden, onToggleHide }: C
     setIsToggling(true)
     const willBeHidden = !isHidden
     try {
-      await onToggleHide(course.canvas_course_id, willBeHidden)
+      // Call Convex mutation directly
+      await toggleHiddenCourse({
+        supabaseId: supabaseUserId,
+        canvasCourseId: course.canvas_course_id,
+        hide: willBeHidden,
+      })
 
       // Show toast notification
       if (willBeHidden) {
@@ -107,6 +117,14 @@ export function CourseSection({ course, assignments, isHidden, onToggleHide }: C
           duration: 3000,
         })
       }
+    } catch (error) {
+      console.error('Error toggling course visibility:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update course visibility',
+        variant: 'destructive',
+        duration: 3000,
+      })
     } finally {
       setIsToggling(false)
     }

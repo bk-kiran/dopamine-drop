@@ -5,6 +5,8 @@ import { decryptToken } from '@/lib/encryption'
 import { updateStreak } from '@/lib/streak-tracker'
 import { awardPoints } from '@/lib/points-engine'
 import { rollReward } from '@/lib/reward-roller'
+import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
+import { api } from '@/convex/_generated/api'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,21 +24,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch user's Canvas token and hidden courses from database
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('canvas_token_encrypted, canvas_token_iv, canvas_user_id, hidden_courses')
-      .eq('id', user.id)
-      .single()
+    // Get Convex client and user ID
+    const convex = getConvexClient()
+    const convexUserId = await getConvexUserId(user.id)
 
-    if (userError || !userData) {
+    // Fetch user's Canvas token and hidden courses from database
+    const userData = await convex.query(api.users.getUser, {
+      authUserId: user.id,
+    })
+
+    if (!userData) {
       return NextResponse.json(
         { error: 'User data not found' },
         { status: 404 }
       )
     }
 
-    if (!userData.canvas_token_encrypted || !userData.canvas_token_iv) {
+    if (!userData.canvasTokenEncrypted || !userData.canvasTokenIv) {
       return NextResponse.json(
         { error: 'Canvas token not configured. Please connect your Canvas account.' },
         { status: 400 }
@@ -45,8 +49,8 @@ export async function POST(request: NextRequest) {
 
     // Decrypt the Canvas token
     const canvasToken = decryptToken(
-      userData.canvas_token_encrypted,
-      userData.canvas_token_iv
+      userData.canvasTokenEncrypted,
+      userData.canvasTokenIv
     )
 
     // Get Canvas base URL
@@ -64,8 +68,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Canvas Sync] Found ${courses.length} courses for user ${user.id}`)
 
-    const hiddenCourses = userData.hidden_courses || []
-    const canvasUserId = parseInt(userData.canvas_user_id || '0')
+    const hiddenCourses = userData.hiddenCourses || []
+    const canvasUserId = parseInt(userData.canvasUserId || '0')
     let totalSynced = 0
     const completedAssignments: {
       assignmentId: string
@@ -77,51 +81,13 @@ export async function POST(request: NextRequest) {
 
     // Process each course
     for (const course of courses) {
-      // Check if course already exists
-      const { data: existingCourse } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('canvas_course_id', course.id.toString())
-        .eq('user_id', user.id)
-        .single()
-
-      let courseUuid: string
-
-      if (existingCourse) {
-        courseUuid = existingCourse.id
-        // Update existing course
-        const { error: courseError } = await supabase
-          .from('courses')
-          .update({
-            name: course.name,
-            course_code: course.course_code,
-          })
-          .eq('id', existingCourse.id)
-
-        if (courseError) {
-          console.error(`[Canvas Sync] Error updating course ${course.id}:`, courseError)
-          continue
-        }
-      } else {
-        // Insert new course
-        const { data: newCourse, error: courseError } = await supabase
-          .from('courses')
-          .insert({
-            user_id: user.id,
-            canvas_course_id: course.id.toString(),
-            name: course.name,
-            course_code: course.course_code,
-          })
-          .select('id')
-          .single()
-
-        if (courseError || !newCourse) {
-          console.error(`[Canvas Sync] Error inserting course ${course.id}:`, courseError)
-          continue
-        }
-
-        courseUuid = newCourse.id
-      }
+      // Upsert course (create or update)
+      const courseId = await convex.mutation(api.courses.upsertCourse, {
+        userId: convexUserId,
+        canvasCourseId: course.id.toString(),
+        name: course.name,
+        courseCode: course.course_code,
+      })
 
       // Fetch and upsert assignments for this course
       try {
@@ -134,12 +100,10 @@ export async function POST(request: NextRequest) {
           console.log(`  - submitted_at: ${assignment.submission?.submitted_at || 'null'}`)
 
           // Check if assignment already exists
-          const { data: existingAssignment } = await supabase
-            .from('assignments')
-            .select('id, status')
-            .eq('canvas_assignment_id', assignment.id.toString())
-            .eq('user_id', user.id)
-            .single()
+          const existingAssignment = await convex.query(api.assignments.getAssignmentByCanvasId, {
+            userId: convexUserId,
+            canvasAssignmentId: assignment.id.toString(),
+          })
 
           // Read submission data directly from assignment object
           let isNewlySubmitted = false
@@ -177,44 +141,21 @@ export async function POST(request: NextRequest) {
             canvas_course_id: course.id.toString(),
           }
 
-          if (existingAssignment) {
-            // Update existing assignment (unless it's newly submitted)
-            if (!isNewlySubmitted) {
-              const { error: assignmentError } = await supabase
-                .from('assignments')
-                .update(assignmentData)
-                .eq('id', existingAssignment.id)
-
-              if (assignmentError) {
-                console.error(
-                  `[Canvas Sync] Error updating assignment ${assignment.id}:`,
-                  assignmentError
-                )
-              } else {
-                totalSynced++
-              }
-            }
-          } else {
-            // Insert new assignment with course_id (UUID foreign key)
-            const { data: newAssignment, error: assignmentError } = await supabase
-              .from('assignments')
-              .insert({
-                user_id: user.id,
-                course_id: courseUuid,
-                canvas_assignment_id: assignment.id.toString(),
-                ...assignmentData,
-              })
-              .select('id')
-              .single()
-
-            if (assignmentError) {
-              console.error(
-                `[Canvas Sync] Error inserting assignment ${assignment.id}:`,
-                assignmentError
-              )
-            } else {
-              totalSynced++
-            }
+          // Upsert assignment (unless it's newly submitted, we update it)
+          if (!isNewlySubmitted || !existingAssignment) {
+            await convex.mutation(api.assignments.upsertAssignment, {
+              userId: convexUserId,
+              courseId,
+              canvasAssignmentId: assignment.id.toString(),
+              title: assignmentData.title,
+              description: assignmentData.description || undefined,
+              dueAt: assignmentData.due_at || undefined,
+              pointsPossible: assignmentData.points_possible,
+              status: assignmentData.status as 'pending' | 'submitted' | 'missing',
+              submittedAt: assignmentData.submitted_at || undefined,
+              canvasCourseId: assignmentData.canvas_course_id,
+            })
+            totalSynced++
           }
 
           // If newly submitted, trigger gamification (status already updated in upsert above)
@@ -225,35 +166,32 @@ export async function POST(request: NextRequest) {
             if (!isHiddenCourse) {
               try {
                 // 1. Update streak
-                await updateStreak({ userId: user.id, supabase })
+                await updateStreak({ authUserId: user.id })
 
                 // 2. Award points
                 const { pointsAwarded, reason } = await awardPoints({
-                  userId: user.id,
-                  assignmentId: existingAssignment.id,
+                  authUserId: user.id,
+                  convexUserId,
+                  assignmentId: existingAssignment._id,
                   dueAt: assignment.due_at,
                   submittedAt: userSubmission?.submitted_at || new Date().toISOString(),
-                  supabase,
                 })
 
                 // 3. Get updated total points
-                const { data: updatedUser } = await supabase
-                  .from('users')
-                  .select('total_points')
-                  .eq('id', user.id)
-                  .single()
+                const updatedUserStats = await convex.query(api.users.getUserStats, {
+                  authUserId: user.id,
+                })
 
                 // 4. Roll for reward
                 const reward = await rollReward({
-                  userId: user.id,
-                  totalPoints: updatedUser?.total_points || 0,
+                  convexUserId,
+                  totalPoints: updatedUserStats?.totalPoints || 0,
                   pointsJustAwarded: pointsAwarded,
-                  supabase,
                 })
 
                 // 5. Collect results
                 completedAssignments.push({
-                  assignmentId: existingAssignment.id,
+                  assignmentId: existingAssignment._id,
                   title: assignment.name,
                   pointsAwarded,
                   reason,

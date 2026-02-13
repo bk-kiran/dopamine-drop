@@ -1,18 +1,22 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import { getConvexClient } from './convex-client'
+import { api } from '@/convex/_generated/api'
+import type { Id } from '@/convex/_generated/dataModel'
 
 export async function awardPoints({
-  userId,
+  authUserId,
+  convexUserId,
   assignmentId,
   dueAt,
   submittedAt,
-  supabase,
 }: {
-  userId: string
-  assignmentId: string
+  authUserId: string
+  convexUserId: Id<'users'>
+  assignmentId: Id<'assignments'>
   dueAt: string | null
   submittedAt: string
-  supabase: SupabaseClient
 }): Promise<{ pointsAwarded: number; reason: string }> {
+  const convex = getConvexClient()
+
   // Calculate base points based on submission timing
   const submittedDate = new Date(submittedAt)
   const dueDate = dueAt ? new Date(dueAt) : null
@@ -44,46 +48,32 @@ export async function awardPoints({
   }
 
   // Fetch user's current streak_count for potential bonus
-  const { data: user } = await supabase
-    .from('users')
-    .select('streak_count')
-    .eq('id', userId)
-    .single()
+  const userStats = await convex.query(api.users.getUserStats, {
+    authUserId,
+  })
 
-  const streakCount = user?.streak_count || 0
+  const streakCount = userStats?.streakCount || 0
   let totalPointsAwarded = basePoints
 
-  // Insert base points into ledger
-  await supabase.from('points_ledger').insert({
-    user_id: userId,
-    assignment_id: assignmentId,
+  // Insert base points into ledger (this also updates user's total_points)
+  await convex.mutation(api.points.addPoints, {
+    userId: convexUserId,
+    assignmentId,
     delta: basePoints,
-    reason: reason,
+    reason,
   })
 
   // If streak >= 3, add 5 bonus points
   if (streakCount >= 3) {
     totalPointsAwarded += 5
 
-    await supabase.from('points_ledger').insert({
-      user_id: userId,
-      assignment_id: assignmentId,
+    await convex.mutation(api.points.addPoints, {
+      userId: convexUserId,
+      assignmentId,
       delta: 5,
       reason: 'streak_bonus',
     })
   }
-
-  // Update user's total_points
-  const { data: userData } = await supabase
-    .from('users')
-    .select('total_points')
-    .eq('id', userId)
-    .single()
-
-  await supabase
-    .from('users')
-    .update({ total_points: (userData?.total_points || 0) + totalPointsAwarded })
-    .eq('id', userId)
 
   return { pointsAwarded: totalPointsAwarded, reason }
 }

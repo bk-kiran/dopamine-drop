@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
+import { api } from '@/convex/_generated/api'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,33 +25,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'rewardId required' }, { status: 400 })
     }
 
-    // Verify reward belongs to user
-    const { data: userReward, error: fetchError } = await supabase
-      .from('user_rewards')
-      .select('id')
-      .eq('reward_id', rewardId)
-      .eq('user_id', user.id)
-      .single()
+    // Verify reward belongs to user and mark as revealed
+    const convex = getConvexClient()
+    const convexUserId = await getConvexUserId(user.id)
 
-    if (fetchError || !userReward) {
-      console.error('[Rewards Reveal] Reward not found:', { rewardId, fetchError })
-      return NextResponse.json({ error: 'Reward not found' }, { status: 404 })
-    }
-
-    console.log('[Rewards Reveal] Found user_reward:', userReward.id)
-
-    // Mark as revealed
-    const { error: updateError } = await supabase
-      .from('user_rewards')
-      .update({ is_revealed: true })
-      .eq('id', userReward.id)
-
-    if (updateError) {
-      console.error('[Rewards Reveal] Update failed:', updateError)
+    try {
+      await convex.mutation(api.rewards.revealReward, {
+        userId: convexUserId,
+        rewardId, // This is now a Convex ID
+      })
+      console.log('[Rewards Reveal] Success! Marked as revealed.')
+    } catch (error) {
+      console.error('[Rewards Reveal] Reveal failed:', error)
       return NextResponse.json({ error: 'Failed to reveal reward' }, { status: 500 })
     }
-
-    console.log('[Rewards Reveal] Success! Marked as revealed.')
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[Rewards Reveal] Unexpected error:', error)
