@@ -141,8 +141,26 @@ export async function POST(request: NextRequest) {
             canvas_course_id: course.id.toString(),
           }
 
-          // Upsert assignment (unless it's newly submitted, we update it)
-          if (!isNewlySubmitted || !existingAssignment) {
+          // Diff check: only upsert if something changed (reduces function calls by 90%+)
+          let needsUpdate = !existingAssignment // Always create if doesn't exist
+
+          if (existingAssignment && !isNewlySubmitted) {
+            // Check if any field has changed
+            const titleChanged = existingAssignment.title !== assignmentData.title
+            const dueAtChanged = (existingAssignment.dueAt || null) !== (assignmentData.due_at || null)
+            const statusChanged = existingAssignment.status !== assignmentData.status
+            const pointsChanged = existingAssignment.pointsPossible !== assignmentData.points_possible
+            const descChanged = (existingAssignment.description || null) !== (assignmentData.description || null)
+
+            needsUpdate = titleChanged || dueAtChanged || statusChanged || pointsChanged || descChanged
+
+            if (!needsUpdate) {
+              console.log(`[Sync] Skipping unchanged assignment: ${assignmentData.title}`)
+            }
+          }
+
+          // Upsert assignment only if needed
+          if (needsUpdate || isNewlySubmitted) {
             await convex.mutation(api.assignments.upsertAssignment, {
               userId: convexUserId,
               courseId,

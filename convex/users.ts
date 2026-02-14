@@ -153,3 +153,39 @@ export const showAllCourses = mutation({
     return []
   },
 })
+
+// Consolidated dashboard data query (reduces 3 separate queries to 1)
+export const getDashboardData = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    // Get user
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) {
+      return {
+        user: null,
+        courses: [],
+        visiblePoints: { totalPoints: 0, streakCount: 0 },
+      }
+    }
+
+    // Get courses (using indexed query)
+    const courses = await ctx.db
+      .query('courses')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    // Return consolidated data
+    return {
+      user,
+      courses,
+      visiblePoints: {
+        totalPoints: user.totalPoints || 0,
+        streakCount: user.streakCount || 0,
+      },
+    }
+  },
+})

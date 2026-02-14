@@ -14,6 +14,9 @@ export function SyncButton() {
     setLoading(true)
     setResult(null)
 
+    // Clear auto-sync cooldown for manual syncs
+    localStorage.removeItem('lastSyncTime')
+
     try {
       const response = await fetch('/api/canvas/sync', {
         method: 'POST',

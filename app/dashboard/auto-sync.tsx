@@ -10,6 +10,20 @@ export function AutoSync() {
   } | null>(null)
 
   useEffect(() => {
+    // 30-minute cooldown check using localStorage
+    const lastSyncTime = localStorage.getItem('lastSyncTime')
+    const now = Date.now()
+    const thirtyMinutes = 30 * 60 * 1000
+
+    if (lastSyncTime) {
+      const timeSinceLastSync = now - parseInt(lastSyncTime, 10)
+      if (timeSinceLastSync < thirtyMinutes) {
+        const minutesRemaining = Math.ceil((thirtyMinutes - timeSinceLastSync) / 60000)
+        console.log(`[Auto-Sync] Cooldown active. Next sync in ${minutesRemaining} minutes.`)
+        return
+      }
+    }
+
     // Session-level guard: only run auto-sync once per browser session
     const autoSyncDone = sessionStorage.getItem('autoSyncDone')
 
@@ -33,8 +47,9 @@ export function AutoSync() {
         if (res.ok) {
           const data = await res.json()
 
-          // Mark auto-sync as done for this session
+          // Mark auto-sync as done for this session and update cooldown timestamp
           sessionStorage.setItem('autoSyncDone', 'true')
+          localStorage.setItem('lastSyncTime', Date.now().toString())
           console.log('[Auto-Sync] Completed and marked as done.')
 
           // Only set result if there are completions or rewards

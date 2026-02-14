@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PartyPopper, Sparkles } from 'lucide-react'
 
 interface CompletedAssignment {
   assignmentId: string
@@ -121,7 +122,10 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
           >
             <Card className="w-full max-w-md shadow-2xl">
               <CardHeader className="text-center">
-                <CardTitle className="text-2xl mb-2">🎉 Reward Unlocked!</CardTitle>
+                <CardTitle className="text-2xl mb-2 flex items-center justify-center gap-2">
+                  <PartyPopper className="w-6 h-6 text-purple-500" />
+                  Reward Unlocked!
+                </CardTitle>
                 <Badge
                   className={`${rarityColors[newReward.rarity]} text-sm uppercase px-3 py-1`}
                 >
@@ -134,9 +138,14 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
                 <Button
                   onClick={handleClaim}
                   disabled={claiming}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 flex items-center justify-center gap-2"
                 >
-                  {claiming ? 'Claiming...' : 'Claim Reward ✨'}
+                  {claiming ? 'Claiming...' : (
+                    <>
+                      Claim Reward
+                      <Sparkles className="w-4 h-4" />
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>

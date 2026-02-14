@@ -47,10 +47,14 @@ export default defineSchema({
     ),
     submittedAt: v.optional(v.string()), // ISO timestamp
     canvasCourseId: v.string(), // Denormalized for faster queries
+    manuallyCompleted: v.optional(v.boolean()), // Manual tick-off by user
+    isUrgent: v.optional(v.boolean()), // Marked as urgent by user
+    urgentOrder: v.optional(v.float64()), // Order in urgent list (for drag-drop)
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])
-    .index('by_course', ['courseId']),
+    .index('by_course', ['courseId'])
+    .index('by_user_and_urgent', ['userId', 'isUrgent']),
 
   // Points ledger table
   pointsLedger: defineTable({
