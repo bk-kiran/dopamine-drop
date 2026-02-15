@@ -45,6 +45,15 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Custom brand colors */
+  --color-brand-50: #faf5ff;
+  --color-brand-100: #f3e8ff;
+  --color-brand-400: #c084fc;
+  --color-brand-500: #a855f7;
+  --color-brand-600: #9333ea;
+  --color-brand-700: #7e22ce;
+  --color-brand-900: #3b0764;
 }
 
 :root {
@@ -80,6 +89,17 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Glassmorphism variables - Light mode */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f7ff;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(168, 85, 247, 0.15);
+  --glass-shadow: 0 8px 32px rgba(168, 85, 247, 0.08);
+  --text-primary: #0f0a1e;
+  --text-muted: #6b7280;
+  --accent: #a855f7;
+  --accent-glow: rgba(168, 85, 247, 0.3);
 }
 
 .dark {
@@ -114,6 +134,17 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Glassmorphism variables - Dark mode */
+  --bg-primary: #0f0a1e;
+  --bg-secondary: #1a1030;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(168, 85, 247, 0.2);
+  --glass-shadow: 0 8px 32px rgba(168, 85, 247, 0.15);
+  --text-primary: #f5f0ff;
+  --text-muted: #9ca3af;
+  --accent: #c084fc;
+  --accent-glow: rgba(192, 132, 252, 0.4);
 }
 
 @layer base {

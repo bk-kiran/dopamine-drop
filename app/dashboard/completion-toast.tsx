@@ -98,10 +98,20 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
   }
 
   const rarityColors = {
-    common: 'bg-gray-100 text-gray-800 border-gray-300',
-    rare: 'bg-blue-100 text-blue-800 border-blue-300',
-    legendary: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    common: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border border-gray-400/30',
+    rare: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-400/30 shadow-[0_0_12px_rgba(6,182,212,0.3)]',
+    legendary: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-900 dark:text-amber-100 border-0 shadow-[0_0_20px_rgba(251,191,36,0.5)]',
   }
+
+  // Particle positions for animation
+  const particles = [
+    { x: '-50%', y: '-50%', delay: 0 },
+    { x: '50%', y: '-50%', delay: 0.1 },
+    { x: '50%', y: '50%', delay: 0.2 },
+    { x: '-50%', y: '50%', delay: 0.3 },
+    { x: '0%', y: '-60%', delay: 0.15 },
+    { x: '0%', y: '60%', delay: 0.25 },
+  ]
 
   return (
     <AnimatePresence>
@@ -110,7 +120,7 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setShowRewardModal(false)}
         >
           <motion.div
@@ -119,26 +129,48 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ type: 'spring', duration: 0.5 }}
             onClick={(e) => e.stopPropagation()}
+            className="relative"
           >
-            <Card className="w-full max-w-md shadow-2xl">
-              <CardHeader className="text-center">
-                <CardTitle className="text-2xl mb-2 flex items-center justify-center gap-2">
+            {/* Particle effects */}
+            {particles.map((particle, i) => (
+              <motion.div
+                key={i}
+                initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
+                animate={{
+                  x: particle.x,
+                  y: particle.y,
+                  opacity: [0, 1, 0],
+                  scale: [0, 1, 0.5],
+                }}
+                transition={{
+                  duration: 1.5,
+                  delay: particle.delay,
+                  repeat: Infinity,
+                  repeatDelay: 1,
+                }}
+                className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full bg-purple-400 blur-sm"
+              />
+            ))}
+
+            <Card className="w-full max-w-md bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border border-[var(--glass-border)] rounded-3xl p-8 shadow-[0_0_60px_rgba(168,85,247,0.3)]">
+              <CardHeader className="text-center pb-4">
+                <CardTitle className="text-2xl mb-3 flex items-center justify-center gap-2 text-[var(--text-primary)]">
                   <PartyPopper className="w-6 h-6 text-purple-500" />
                   Reward Unlocked!
                 </CardTitle>
                 <Badge
-                  className={`${rarityColors[newReward.rarity]} text-sm uppercase px-3 py-1`}
+                  className={`${rarityColors[newReward.rarity]} text-sm uppercase px-4 py-1.5 font-bold`}
                 >
                   {newReward.rarity}
                 </Badge>
               </CardHeader>
-              <CardContent className="text-center space-y-4">
-                <div className="text-xl font-bold">{newReward.name}</div>
-                <p className="text-muted-foreground">{newReward.description}</p>
-                <Button
+              <CardContent className="text-center space-y-4 pt-2">
+                <div className="text-xl font-bold text-[var(--text-primary)]">{newReward.name}</div>
+                <p className="text-[var(--text-muted)]">{newReward.description}</p>
+                <button
                   onClick={handleClaim}
                   disabled={claiming}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-violet-500 text-white font-semibold hover:from-purple-500 hover:to-violet-400 shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_28px_rgba(168,85,247,0.6)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {claiming ? 'Claiming...' : (
                     <>
@@ -146,7 +178,7 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
                       <Sparkles className="w-4 h-4" />
                     </>
                   )}
-                </Button>
+                </button>
               </CardContent>
             </Card>
           </motion.div>

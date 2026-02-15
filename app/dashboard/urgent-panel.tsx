@@ -76,13 +76,13 @@ function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 p-4 bg-white border rounded-lg hover:bg-muted/50 transition-colors"
+      className="flex items-center gap-3 p-4 rounded-xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200"
     >
       {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--text-muted)] hover:text-[var(--text-primary)]"
       >
         <GripVertical className="h-5 w-5" />
       </div>
@@ -98,8 +98,8 @@ function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
 
       {/* Assignment info */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium truncate">{assignment.title}</h3>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+        <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">{assignment.title}</h3>
+        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-1">
           <span className="font-mono">{assignment.courseCode}</span>
           <span>•</span>
           <span>{formatDate(assignment.dueAt)}</span>
@@ -108,11 +108,12 @@ function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
         </div>
       </div>
 
-      {/* Status badge */}
+      {/* Status badge - red dot for missing */}
       {assignment.status === 'missing' && (
-        <Badge variant="destructive" className="flex-shrink-0">
-          Missing
-        </Badge>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="w-2 h-2 rounded-full bg-red-400" />
+          <span className="text-xs text-red-400">Missing</span>
+        </div>
       )}
     </div>
   )
@@ -183,7 +184,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             onClick={onClose}
           />
 
@@ -193,16 +194,16 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background shadow-2xl z-50 flex flex-col"
+            className="fixed right-0 top-0 h-full w-80 bg-[var(--bg-primary)] dark:bg-[var(--bg-secondary)] border-l border-[var(--glass-border)] backdrop-blur-xl shadow-[-8px_0_32px_rgba(168,85,247,0.15)] z-50 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--glass-border)]">
               <div>
-                <h2 className="text-2xl font-bold flex items-center gap-2">
+                <h2 className="text-2xl font-bold flex items-center gap-2 text-[var(--text-primary)]">
                   <Flame className="w-6 h-6 text-orange-500 fill-orange-500" />
                   Urgent Tasks
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-[var(--text-muted)] mt-1">
                   Drag to reorder your priorities
                 </p>
               </div>
@@ -215,9 +216,9 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
             <div className="flex-1 overflow-y-auto p-6">
               {assignments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <Target className="w-16 h-16 mb-4 text-gray-300" />
-                  <h3 className="text-lg font-semibold mb-2">No urgent tasks</h3>
-                  <p className="text-sm text-muted-foreground max-w-xs">
+                  <Target className="w-16 h-16 mb-4 text-[var(--text-muted)] opacity-30" />
+                  <h3 className="text-lg font-semibold mb-2 text-[var(--text-primary)]">No urgent tasks</h3>
+                  <p className="text-sm text-[var(--text-muted)] max-w-xs">
                     Mark assignments as urgent using the flame icon to see them here.
                   </p>
                 </div>

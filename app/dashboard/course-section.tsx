@@ -281,10 +281,16 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
       return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
     })
 
+  // Parse course name to remove Canvas IDs and semester codes
+  const parseCourseName = (name: string) => {
+    // Take everything before the first opening parenthesis
+    return name.split('(')[0].trim()
+  }
+
   return (
-    <Card>
+    <Card className="rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-300 mb-3">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex items-center justify-between group">
           <div className="flex items-center gap-2 flex-1">
             <Button
               variant="ghost"
@@ -298,24 +304,24 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                 <ChevronUp className="h-5 w-5" />
               )}
             </Button>
-            <span>{course.name}</span>
+            <span className="text-[var(--text-primary)]">
+              {parseCourseName(course.name)} — {course.course_code}
+            </span>
             <Badge
-              variant="secondary"
-              className={pendingAssignments.length === 0 ? 'opacity-50' : ''}
+              className={`ml-2 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold border-0 ${
+                pendingAssignments.length === 0 ? 'opacity-50' : ''
+              }`}
             >
               {pendingAssignments.length}
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-normal text-muted-foreground">
-              {course.course_code}
-            </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleToggleHide}
               disabled={isToggling}
-              className="p-1 h-auto hover:bg-muted"
+              className="p-1 h-auto hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             >
               {isHidden ? (
                 <Eye className="h-4 w-4" />
@@ -367,6 +373,11 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                       checkboxState = 'pending'
                     }
 
+                    // Calculate if due soon (within 3 days)
+                    const isDueSoon = assignment.due_at
+                      ? (new Date(assignment.due_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) <= 3
+                      : false
+
                     return (
                       <motion.div
                         key={assignment.id}
@@ -375,14 +386,14 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.2 }}
-                        className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors duration-200 group/assignment"
                       >
                         {/* State 1: PENDING - Empty circle, clickable */}
                         {checkboxState === 'pending' && (
                           <button
                             onClick={() => handleCompleteAssignment(assignment.id, assignment.title)}
                             disabled={isCompleting}
-                            className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                            className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 opacity-0 group-hover/assignment:opacity-100"
                             title="Mark as complete"
                           >
                             {isCompleting ? (
@@ -398,7 +409,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="flex-shrink-0 text-green-600 cursor-not-allowed opacity-75">
+                                <div className="flex-shrink-0 text-green-600 cursor-not-allowed opacity-0 group-hover/assignment:opacity-75">
                                   <CheckCircle2 className="h-6 w-6" />
                                 </div>
                               </TooltipTrigger>
@@ -414,7 +425,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           <button
                             onClick={() => handleClickCompleted(assignment.id, assignment.title, assignment)}
                             disabled={isUncompleting}
-                            className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors disabled:opacity-50"
+                            className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors disabled:opacity-50 opacity-0 group-hover/assignment:opacity-100"
                             title="Click to untick (will remove points)"
                           >
                             {isUncompleting ? (
@@ -430,7 +441,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           <button
                             onClick={() => handleCompleteAssignment(assignment.id, assignment.title)}
                             disabled={isCompleting}
-                            className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                            className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 opacity-0 group-hover/assignment:opacity-100"
                             title="Mark as complete"
                           >
                             {isCompleting ? (
@@ -442,36 +453,49 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                         )}
 
                         <div className="flex-1 min-w-0 mr-4">
-                          <h3 className="font-semibold text-lg mb-1 truncate">
+                          <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">
                             {assignment.title}
                           </h3>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>Due: {formatDate(assignment.due_at)}</span>
+                          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-1">
+                            <span>{formatDate(assignment.due_at)}</span>
                             <span>•</span>
-                            <span>{assignment.points_possible} points</span>
+                            <span>{assignment.points_possible} pts</span>
                           </div>
                         </div>
 
-                        {/* Urgent flame icon - only for pending/missing assignments */}
-                        {(checkboxState === 'pending' || checkboxState === 'missing') && (() => {
-                          console.log('assignment urgent state:', assignment.id, assignment.isUrgent)
-                          return (
-                            <button
-                              onClick={() => handleToggleUrgent(assignment.id, assignment.isUrgent || false)}
-                              className="p-1 rounded hover:bg-orange-50 transition-colors duration-200"
-                            >
-                              <Flame
-                                className={`w-4 h-4 transition-colors duration-200 ${
-                                  assignment.isUrgent
-                                    ? 'text-orange-500 fill-orange-500'
-                                    : 'text-gray-300 fill-none hover:text-orange-400'
-                                }`}
-                              />
-                            </button>
-                          )
-                        })()}
+                        {/* Urgent flame icon - only for pending/missing assignments, shown on hover */}
+                        {(checkboxState === 'pending' || checkboxState === 'missing') && (
+                          <button
+                            onClick={() => handleToggleUrgent(assignment.id, assignment.isUrgent || false)}
+                            className={`p-1 rounded hover:bg-orange-50 transition-colors duration-200 ${
+                              assignment.isUrgent ? '' : 'opacity-0 group-hover/assignment:opacity-100'
+                            }`}
+                          >
+                            <Flame
+                              className={`w-4 h-4 transition-colors duration-200 ${
+                                assignment.isUrgent
+                                  ? 'text-orange-500 fill-orange-500'
+                                  : 'text-gray-300 fill-none hover:text-orange-400'
+                              }`}
+                            />
+                          </button>
+                        )}
 
-                        <StatusBadge status={status} />
+                        {/* Dot indicator instead of badge */}
+                        <div className="flex items-center gap-2">
+                          {status === 'missing' && (
+                            <>
+                              <div className="w-2 h-2 rounded-full bg-red-400" />
+                              <span className="text-xs text-red-400">Missing</span>
+                            </>
+                          )}
+                          {status === 'pending' && isDueSoon && (
+                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                          )}
+                          {status === 'pending' && !isDueSoon && (
+                            <div className="w-2 h-2 rounded-full bg-gray-400" />
+                          )}
+                        </div>
                       </motion.div>
                     )
                   })}
@@ -480,9 +504,9 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                   {/* Divider between pending and completed */}
                   {pendingAssignments.length > 0 && completedAssignments.length > 0 && (
                     <div className="flex items-center gap-3 my-4">
-                      <div className="flex-1 border-t" />
-                      <span className="text-xs text-muted-foreground">Completed</span>
-                      <div className="flex-1 border-t" />
+                      <div className="flex-1 border-t border-[var(--glass-border)]" />
+                      <span className="text-xs text-[var(--text-muted)]">Completed</span>
+                      <div className="flex-1 border-t border-[var(--glass-border)]" />
                     </div>
                   )}
 
@@ -499,14 +523,14 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -20 }}
                           transition={{ duration: 0.2 }}
-                          className="flex items-center gap-3 p-4 border rounded-lg opacity-50"
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-50 group/assignment"
                         >
                           {/* Manually completed: clickable to untick */}
                           {assignment.manuallyCompleted ? (
                             <button
                               onClick={() => handleClickCompleted(assignment.id, assignment.title, assignment)}
                               disabled={isUncompleting}
-                              className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors disabled:opacity-50"
+                              className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors disabled:opacity-50 opacity-0 group-hover/assignment:opacity-100"
                               title="Click to untick (will remove points)"
                             >
                               {isUncompleting ? (
@@ -520,7 +544,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="flex-shrink-0 text-green-600 cursor-not-allowed opacity-75">
+                                  <div className="flex-shrink-0 text-green-600 cursor-not-allowed opacity-0 group-hover/assignment:opacity-75">
                                     <CheckCircle2 className="h-6 w-6" />
                                   </div>
                                 </TooltipTrigger>
@@ -532,19 +556,18 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           )}
 
                           <div className="flex-1 min-w-0 mr-4">
-                            <h3 className="font-semibold text-lg mb-1 truncate line-through">
+                            <h3 className="font-medium text-[var(--text-primary)] text-sm truncate line-through">
                               {assignment.title}
                             </h3>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <span>Due: {formatDate(assignment.due_at)}</span>
+                            <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-1">
+                              <span>{formatDate(assignment.due_at)}</span>
                               <span>•</span>
-                              <span>{assignment.points_possible} points</span>
+                              <span>{assignment.points_possible} pts</span>
                             </div>
                           </div>
 
-                          <Badge variant="default" className="bg-green-600 flex-shrink-0">
-                            Submitted
-                          </Badge>
+                          {/* Green dot indicator for submitted */}
+                          <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                         </motion.div>
                       )
                     })}

@@ -21,8 +21,9 @@ import { CourseSection } from './course-section'
 import { SyncButton } from './sync-button'
 import { AutoSync } from './auto-sync'
 import { UrgentPanel } from './urgent-panel'
-import { Eye, EyeOff, ChevronDown, ChevronUp, Flame, Zap } from 'lucide-react'
+import { Eye, EyeOff, ChevronDown, ChevronUp, Flame, Zap, RefreshCw, Sun, Moon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme } from 'next-themes'
 
 interface Assignment {
   _id: string
@@ -54,6 +55,8 @@ interface DashboardClientProps {
 export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [isTrayExpanded, setIsTrayExpanded] = useState(false)
   const [isUrgentPanelOpen, setIsUrgentPanelOpen] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const { theme, setTheme } = useTheme()
 
   // Consolidated dashboard query (reduces 3 queries to 1)
   const dashboardData = useQuery(api.users.getDashboardData, {
@@ -193,30 +196,90 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     }
   }
 
+  // Get dynamic greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }
+
+  // Get user's first name
+  const getFirstName = () => {
+    if (!userData?.displayName) return ''
+    return userData.displayName.split(' ')[0]
+  }
+
+  // Handle manual sync
+  const handleSync = async () => {
+    setIsSyncing(true)
+    localStorage.removeItem('lastSyncTime')
+
+    try {
+      const response = await fetch('/api/canvas/sync', {
+        method: 'POST',
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        // Success - data will be automatically updated via Convex reactivity
+        console.log(`Synced ${data.synced} assignments from ${data.courses} courses`)
+      }
+    } catch (error) {
+      console.error('Sync error:', error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   return (
     <div className="container max-w-6xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-2">
-            Your Canvas assignments and progress
+          <h1 className="text-4xl font-black bg-gradient-to-r from-purple-600 to-violet-400 bg-clip-text text-transparent">
+            dopamine drop
+          </h1>
+          <p className="text-[var(--text-muted)] mt-2">
+            {getGreeting()}{getFirstName() && `, ${getFirstName()}`}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Stats chips */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-full">
+          {/* Glassmorphism stats chips */}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)]">
             <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-            <span className="text-sm font-semibold text-orange-900">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
               {pointsData.streakCount} day streak
             </span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-full">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:shadow-[0_0_20px_var(--accent-glow)] transition-shadow duration-300">
             <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            <span className="text-sm font-semibold text-purple-900">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
               {pointsData.totalPoints} pts
             </span>
           </div>
-          <SyncButton />
+
+          {/* Icon-only sync button */}
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="p-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200 disabled:opacity-50"
+            title="Sync with Canvas"
+          >
+            <RefreshCw className={`w-4 h-4 text-[var(--text-primary)] ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* Dark mode toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200"
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-[var(--text-primary)]" />
+            ) : (
+              <Moon className="w-4 h-4 text-[var(--text-primary)]" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -257,20 +320,20 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </div>
 
           {hiddenCount > 0 && (
-            <Card className="mt-6">
+            <Card className="mt-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)]">
               {/* Collapsed tray header */}
               <button
                 onClick={() => setIsTrayExpanded(!isTrayExpanded)}
-                className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors rounded-lg"
+                className="w-full flex items-center justify-between p-4 hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors rounded-2xl"
               >
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <EyeOff className="w-4 h-4 text-gray-400" />
+                <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+                  <EyeOff className="w-4 h-4" />
                   <span>{hiddenCount} hidden course{hiddenCount > 1 ? 's' : ''}</span>
                 </div>
                 {isTrayExpanded ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  <ChevronUp className="h-4 w-4 text-[var(--text-muted)]" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
                 )}
               </button>
 
@@ -289,20 +352,20 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                         {hiddenCoursesData.map((course) => (
                           <div
                             key={course.canvasCourseId}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                            className="flex items-center justify-between p-3 rounded-xl hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors group"
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <EyeOff className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <EyeOff className="h-4 w-4 text-[var(--text-muted)] flex-shrink-0" />
                               <div className="min-w-0 flex-1">
-                                <p className="font-medium truncate">{course.name}</p>
-                                <p className="text-xs text-muted-foreground">{course.courseCode}</p>
+                                <p className="font-medium text-[var(--text-primary)] truncate">{course.name}</p>
+                                <p className="text-xs text-[var(--text-muted)]">{course.courseCode}</p>
                               </div>
                             </div>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleToggleIndividualCourse(course.canvasCourseId)}
-                              className="flex-shrink-0"
+                              className="flex-shrink-0 hover:text-purple-500"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -339,18 +402,17 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           animate={{ scale: 1 }}
           className="fixed bottom-6 right-6 z-30"
         >
-          <Button
+          <button
             onClick={() => setIsUrgentPanelOpen(true)}
-            size="lg"
-            className="rounded-full h-14 w-14 shadow-lg relative bg-white hover:bg-gray-50 border-2 border-orange-500"
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-violet-700 shadow-[0_0_24px_rgba(168,85,247,0.5)] hover:shadow-[0_0_32px_rgba(168,85,247,0.7)] transition-all duration-300 flex items-center justify-center relative"
           >
-            <Flame className="h-6 w-6 text-orange-500 fill-orange-500" />
+            <Flame className="h-6 w-6 text-white" />
             {urgentCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-primary)]">
                 {urgentCount}
               </span>
             )}
-          </Button>
+          </button>
         </motion.div>
       )}
 
