@@ -46,6 +46,7 @@ export const updateUser = mutation({
       streakCount: v.optional(v.number()),
       longestStreak: v.optional(v.number()),
       lastActivityDate: v.optional(v.string()),
+      avatarStorageId: v.optional(v.id('_storage')),
     }),
   },
   handler: async (ctx, args) => {
@@ -58,6 +59,100 @@ export const updateUser = mutation({
 
     await ctx.db.patch(user._id, args.data)
     return user._id
+  },
+})
+
+// Update user avatar
+export const updateAvatar = mutation({
+  args: {
+    supabaseId: v.string(),
+    storageId: v.id('_storage'),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, {
+      avatarStorageId: args.storageId,
+    })
+
+    return { success: true }
+  },
+})
+
+// Get avatar URL
+export const getAvatarUrl = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user?.avatarStorageId) return null
+
+    return await ctx.storage.getUrl(user.avatarStorageId)
+  },
+})
+
+// Update display name
+export const updateDisplayName = mutation({
+  args: {
+    supabaseId: v.string(),
+    displayName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, {
+      displayName: args.displayName,
+    })
+
+    return { success: true }
+  },
+})
+
+// Get profile stats
+export const getProfileStats = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) {
+      return {
+        totalPoints: 0,
+        streakCount: 0,
+        longestStreak: 0,
+        submittedCount: 0,
+      }
+    }
+
+    // Get submitted assignments count
+    const assignments = await ctx.db
+      .query('assignments')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    const submittedCount = assignments.filter(a => a.status === 'submitted').length
+
+    return {
+      totalPoints: user.totalPoints || 0,
+      streakCount: user.streakCount || 0,
+      longestStreak: user.longestStreak || 0,
+      submittedCount,
+    }
   },
 })
 

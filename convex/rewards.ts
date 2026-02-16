@@ -81,6 +81,33 @@ export const getUserRewards = query({
   },
 })
 
+// Get user rewards by Supabase ID
+export const getUserRewardsBySupabaseId = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    // Find user by Supabase ID
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) return []
+
+    const userRewards = await ctx.db
+      .query('userRewards')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    // Get reward details
+    const rewards = await Promise.all(userRewards.map((ur) => ctx.db.get(ur.rewardId)))
+
+    return userRewards.map((ur, i) => ({
+      ...ur,
+      reward: rewards[i],
+    }))
+  },
+})
+
 // Create reward (for seeding)
 export const create = mutation({
   args: {

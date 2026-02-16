@@ -12,6 +12,7 @@ export default defineSchema({
     canvasTokenIv: v.optional(v.string()),
     canvasUserId: v.optional(v.string()),
     displayName: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id('_storage')), // Convex file storage ID for profile photo
     hiddenCourses: v.optional(v.array(v.string())), // Array of Canvas course IDs
 
     // Gamification

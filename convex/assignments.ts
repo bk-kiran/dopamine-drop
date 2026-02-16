@@ -378,6 +378,55 @@ export const manuallyCompleteAssignment = mutation({
   },
 })
 
+// Get ALL assignments with course info for schedule (no filtering by status)
+export const getAssignmentsForSchedule = query({
+  args: {
+    supabaseId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find user by Supabase ID
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) return []
+
+    // Get ALL assignments for this user (no status filtering)
+    const assignments = await ctx.db
+      .query('assignments')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    // Get all unique course IDs
+    const courseIds = [...new Set(assignments.map((a) => a.courseId))]
+
+    // Fetch courses
+    const courses = await Promise.all(courseIds.map((id) => ctx.db.get(id)))
+
+    // Build course map
+    const courseMap = new Map()
+    courses.forEach((course) => {
+      if (course) {
+        courseMap.set(course._id, course)
+      }
+    })
+
+    // Join with course info (no filtering)
+    const joined = assignments.map((a) => {
+      const course = courseMap.get(a.courseId)
+      return {
+        ...a,
+        courseName: course?.name || '',
+        courseCode: course?.courseCode || '',
+        isUrgent: a.isUrgent ?? false,
+      }
+    })
+
+    return joined
+  },
+})
+
 // Toggle urgent status of an assignment
 export const toggleUrgent = mutation({
   args: {

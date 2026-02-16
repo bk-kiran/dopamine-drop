@@ -40,6 +40,12 @@ export function Sidebar() {
 
   const userData = dashboardData?.user
 
+  // Get avatar URL
+  const avatarUrl = useQuery(
+    api.users.getAvatarUrl,
+    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+  )
+
   // Load collapsed state from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('sidebarCollapsed')
@@ -158,10 +164,18 @@ export function Sidebar() {
           >
             <div className="flex items-center gap-3">
               {/* Avatar */}
-              <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                <span className="text-sm font-bold text-purple-400">
-                  {getInitials()}
-                </span>
+              <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center overflow-hidden">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-purple-400">
+                    {getInitials()}
+                  </span>
+                )}
               </div>
               {/* Info */}
               <div className="flex-1 min-w-0">
