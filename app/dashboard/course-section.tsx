@@ -288,15 +288,15 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
   }
 
   return (
-    <Card className="rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-300 mb-3">
-      <CardHeader>
+    <Card className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/8 hover:border-purple-400/20 transition-all duration-300 mb-4">
+      <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between group">
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-3 flex-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={toggleCollapse}
-              className="p-0 h-auto hover:bg-transparent"
+              className="p-0 h-auto hover:bg-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               {isCollapsed ? (
                 <ChevronDown className="h-5 w-5" />
@@ -304,15 +304,15 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                 <ChevronUp className="h-5 w-5" />
               )}
             </Button>
-            <span className="text-[var(--text-primary)]">
+            <span className="text-[var(--text-primary)] font-bold text-lg">
               {parseCourseName(course.name)} — {course.course_code}
             </span>
             <Badge
-              className={`ml-2 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold border-0 ${
-                pendingAssignments.length === 0 ? 'opacity-50' : ''
+              className={`px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30 ${
+                pendingAssignments.length === 0 ? 'opacity-40' : ''
               }`}
             >
-              {pendingAssignments.length}
+              {pendingAssignments.length} PENDING
             </Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -321,12 +321,12 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
               size="sm"
               onClick={handleToggleHide}
               disabled={isToggling}
-              className="p-1 h-auto hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              className="p-1.5 h-auto hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             >
               {isHidden ? (
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 text-[var(--text-muted)]" />
               ) : (
-                <EyeOff className="h-4 w-4" />
+                <EyeOff className="h-4 w-4 text-[var(--text-muted)]" />
               )}
             </Button>
           </div>
@@ -413,7 +413,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                                   <CheckCircle2 className="h-6 w-6" />
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent>
+                              <TooltipContent side="right" sideOffset={8} avoidCollisions={true} collisionPadding={16}>
                                 <p>Submitted on Canvas — cannot untick</p>
                               </TooltipContent>
                             </Tooltip>
@@ -481,7 +481,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                           </button>
                         )}
 
-                        {/* Dot indicator instead of badge */}
+                        {/* Dot indicator with dynamic colors */}
                         <div className="flex items-center gap-2">
                           {status === 'missing' && (
                             <>
@@ -489,10 +489,19 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                               <span className="text-xs text-red-400">Missing</span>
                             </>
                           )}
-                          {status === 'pending' && isDueSoon && (
-                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                          )}
-                          {status === 'pending' && !isDueSoon && (
+                          {status === 'pending' && assignment.due_at && (() => {
+                            const hoursUntilDue = (new Date(assignment.due_at).getTime() - new Date().getTime()) / (1000 * 60 * 60)
+                            const daysUntilDue = hoursUntilDue / 24
+
+                            if (hoursUntilDue < 24) {
+                              return <div className="w-2 h-2 rounded-full bg-red-400" />
+                            } else if (daysUntilDue <= 3) {
+                              return <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                            } else {
+                              return <div className="w-2 h-2 rounded-full bg-gray-400" />
+                            }
+                          })()}
+                          {status === 'pending' && !assignment.due_at && (
                             <div className="w-2 h-2 rounded-full bg-gray-400" />
                           )}
                         </div>
@@ -548,7 +557,7 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
                                     <CheckCircle2 className="h-6 w-6" />
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent side="right" sideOffset={8} avoidCollisions={true} collisionPadding={16}>
                                   <p>Submitted on Canvas — cannot untick</p>
                                 </TooltipContent>
                               </Tooltip>

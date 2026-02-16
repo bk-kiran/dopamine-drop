@@ -185,7 +185,61 @@ export const getDashboardData = query({
       visiblePoints: {
         totalPoints: user.totalPoints || 0,
         streakCount: user.streakCount || 0,
+        longestStreak: user.longestStreak || 0,
       },
+    }
+  },
+})
+
+// Fixed levels table
+const LEVELS = [
+  { level: 1, name: 'Freshman', minPoints: 0, maxPoints: 100 },
+  { level: 2, name: 'Sophomore', minPoints: 100, maxPoints: 250 },
+  { level: 3, name: 'Junior', minPoints: 250, maxPoints: 500 },
+  { level: 4, name: 'Senior', minPoints: 500, maxPoints: 1000 },
+  { level: 5, name: 'Graduate', minPoints: 1000, maxPoints: 2000 },
+  { level: 6, name: 'PhD Student', minPoints: 2000, maxPoints: 3500 },
+  { level: 7, name: 'Professor', minPoints: 3500, maxPoints: 99999 },
+]
+
+// Get user level and progress
+export const getLevel = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    const currentPoints = user?.totalPoints || 0
+
+    // Find current level
+    let currentLevelData = LEVELS[0]
+    for (const level of LEVELS) {
+      if (currentPoints >= level.minPoints && currentPoints < level.maxPoints) {
+        currentLevelData = level
+        break
+      }
+    }
+
+    // Find next level (if not at max level)
+    const nextLevelData = LEVELS.find((l) => l.level === currentLevelData.level + 1)
+
+    return {
+      currentPoints,
+      currentLevel: currentLevelData.level,
+      levelName: currentLevelData.name,
+      currentLevelMinPoints: currentLevelData.minPoints,
+      nextLevelPoints: nextLevelData?.minPoints || currentLevelData.maxPoints,
+      nextLevelName: nextLevelData?.name || 'Max Level',
+      pointsNeeded: nextLevelData ? nextLevelData.minPoints - currentPoints : 0,
+      progressPercentage: nextLevelData
+        ? Math.floor(
+            ((currentPoints - currentLevelData.minPoints) /
+              (nextLevelData.minPoints - currentLevelData.minPoints)) *
+              100
+          )
+        : 100,
     }
   },
 })

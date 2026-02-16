@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button'
 import { CourseSection } from './course-section'
 import { SyncButton } from './sync-button'
 import { AutoSync } from './auto-sync'
-import { UrgentPanel } from './urgent-panel'
 import { Eye, EyeOff, ChevronDown, ChevronUp, Flame, Zap, RefreshCw, Sun, Moon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
@@ -54,17 +53,11 @@ interface DashboardClientProps {
 
 export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [isTrayExpanded, setIsTrayExpanded] = useState(false)
-  const [isUrgentPanelOpen, setIsUrgentPanelOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const { theme, setTheme } = useTheme()
 
   // Consolidated dashboard query (reduces 3 queries to 1)
   const dashboardData = useQuery(api.users.getDashboardData, {
-    supabaseId: supabaseUserId,
-  })
-
-  // Get urgent assignments count
-  const urgentAssignments = useQuery(api.assignments.getUrgentAssignments, {
     supabaseId: supabaseUserId,
   })
 
@@ -171,7 +164,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     (course) => hiddenCourses.includes(course.canvasCourseId)
   )
   const hiddenCount = hiddenCoursesData.length
-  const urgentCount = urgentAssignments?.length || 0
 
   // Handle show all
   const handleShowAll = async () => {
@@ -233,51 +225,54 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   }
 
   return (
-    <div className="container max-w-6xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-8">
+    <div className="container max-w-6xl mx-auto px-4 py-6">
+      {/* Slim header strip */}
+      <div className="flex items-center justify-between mb-6 py-4">
         <div>
-          <h1 className="text-4xl font-black bg-gradient-to-r from-purple-600 to-violet-400 bg-clip-text text-transparent">
-            dopamine drop
-          </h1>
-          <p className="text-[var(--text-muted)] mt-2">
-            {getGreeting()}{getFirstName() && `, ${getFirstName()}`}
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
+            ACADEMIC WORKSPACE
           </p>
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">
+            Welcome back{getFirstName() && `, ${getFirstName()}`}
+          </h2>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Glassmorphism stats chips */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)]">
-            <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              {pointsData.streakCount} day streak
-            </span>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:shadow-[0_0_20px_var(--accent-glow)] transition-shadow duration-300">
-            <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              {pointsData.totalPoints} pts
+        <div className="flex items-center gap-2">
+          {/* Streak chip */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+            <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
+              {pointsData.streakCount} DAY STREAK
             </span>
           </div>
 
-          {/* Icon-only sync button */}
+          {/* Points chip */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+            <Zap className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
+              {pointsData.totalPoints} PTS
+            </span>
+          </div>
+
+          {/* Sync button */}
           <button
             onClick={handleSync}
             disabled={isSyncing}
-            className="p-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200 disabled:opacity-50"
+            className="p-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all duration-200 disabled:opacity-50"
             title="Sync with Canvas"
           >
-            <RefreshCw className={`w-4 h-4 text-[var(--text-primary)] ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[var(--text-primary)] ${isSyncing ? 'animate-spin' : ''}`} />
           </button>
 
           {/* Dark mode toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-2 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200"
+            className="p-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all duration-200"
             title="Toggle theme"
           >
             {theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-[var(--text-primary)]" />
+              <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" />
             ) : (
-              <Moon className="w-4 h-4 text-[var(--text-primary)]" />
+              <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" />
             )}
           </button>
         </div>
@@ -394,34 +389,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       )}
 
       <AutoSync />
-
-      {/* Floating action button for urgent tasks */}
-      {urgentCount > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="fixed bottom-6 right-6 z-30"
-        >
-          <button
-            onClick={() => setIsUrgentPanelOpen(true)}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-violet-700 shadow-[0_0_24px_rgba(168,85,247,0.5)] hover:shadow-[0_0_32px_rgba(168,85,247,0.7)] transition-all duration-300 flex items-center justify-center relative"
-          >
-            <Flame className="h-6 w-6 text-white" />
-            {urgentCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-[var(--bg-primary)]">
-                {urgentCount}
-              </span>
-            )}
-          </button>
-        </motion.div>
-      )}
-
-      {/* Urgent panel */}
-      <UrgentPanel
-        supabaseUserId={supabaseUserId}
-        isOpen={isUrgentPanelOpen}
-        onClose={() => setIsUrgentPanelOpen(false)}
-      />
     </div>
   )
 }
