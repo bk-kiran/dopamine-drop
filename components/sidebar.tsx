@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BookOpen, Calendar, User, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Calendar, User, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -12,6 +12,7 @@ const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { name: 'Courses', icon: BookOpen, href: '/dashboard/courses' },
   { name: 'Schedule', icon: Calendar, href: '/dashboard/schedule' },
+  { name: 'Leaderboard', icon: Trophy, href: '/dashboard/leaderboard' },
   { name: 'Profile', icon: User, href: '/dashboard/profile' },
 ]
 

@@ -20,6 +20,8 @@ export default defineSchema({
     streakCount: v.optional(v.number()),
     longestStreak: v.optional(v.number()),
     lastActivityDate: v.optional(v.string()), // YYYY-MM-DD format
+    streakShields: v.optional(v.float64()), // 0–3, protect streak for 1 missed day each
+    xpMultiplierDay: v.optional(v.string()), // '0'=Sunday … '6'=Saturday; all points on this day are doubled
     dashboardSectionOrder: v.optional(v.array(v.string())), // e.g. ['course_123', 'my_tasks', 'course_456']
   }).index('by_auth_user_id', ['authUserId']),
 
@@ -127,6 +129,40 @@ export default defineSchema({
     completed: v.boolean(),
     bonusAwarded: v.boolean(),
   }).index('by_user_date', ['userId', 'date']),
+
+  // Achievements pool (static, seeded once)
+  achievements: defineTable({
+    key: v.string(), // unique identifier e.g. 'first_blood'
+    name: v.string(),
+    description: v.string(),
+    icon: v.string(), // lucide icon name e.g. 'Star'
+    color: v.string(), // tailwind color e.g. 'yellow'
+    bonusPoints: v.float64(),
+  }).index('by_key', ['key']),
+
+  // Per-user unlocked achievements
+  userAchievements: defineTable({
+    userId: v.id('users'),
+    achievementId: v.id('achievements'),
+    unlockedAt: v.string(), // ISO timestamp
+    seen: v.boolean(),
+  }).index('by_user_id', ['userId']),
+
+  // Leaderboards
+  leaderboards: defineTable({
+    name: v.string(),
+    creatorId: v.id('users'),
+    inviteCode: v.string(), // unique 8-char alphanumeric code
+    createdAt: v.string(),
+  }).index('by_invite_code', ['inviteCode']),
+
+  leaderboardMembers: defineTable({
+    leaderboardId: v.id('leaderboards'),
+    userId: v.id('users'),
+    joinedAt: v.string(),
+  })
+    .index('by_leaderboard', ['leaderboardId'])
+    .index('by_user', ['userId']),
 
   // User rewards table (junction table)
   userRewards: defineTable({

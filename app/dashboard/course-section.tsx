@@ -99,6 +99,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
   const unCompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const toggleUrgent = useMutation(api.assignments.toggleUrgent)
   const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
+  const checkAndAwardAchievements = useMutation(api.achievements.checkAndAwardAchievements)
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -131,8 +132,19 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
         duration: 4000,
       })
 
-      // Update daily challenge progress (fire and forget)
+      // Show shield toast if a shield was consumed
+      if (result.shieldUsed && result.protectedStreak) {
+        toast({
+          title: `Shield used! Your ${result.protectedStreak}-day streak is protected`,
+          description: 'A streak shield absorbed the missed day.',
+          className: 'bg-purple-50 border-purple-200',
+          duration: 5000,
+        })
+      }
+
+      // Update daily challenge progress + check achievements (fire and forget)
       updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
+      checkAndAwardAchievements({ supabaseId: supabaseUserId }).catch(console.error)
     } catch (error: any) {
       console.error('Error completing assignment:', error)
       toast({

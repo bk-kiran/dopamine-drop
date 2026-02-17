@@ -339,6 +339,25 @@ export const getLevel = query({
   },
 })
 
+// Set the user's weekly 2x XP multiplier day
+export const setXpMultiplierDay = mutation({
+  args: {
+    supabaseId: v.string(),
+    day: v.optional(v.string()), // '0'–'6' (Sun–Sat), or undefined to clear
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, { xpMultiplierDay: args.day })
+    return { success: true }
+  },
+})
+
 // Get dashboard section order
 export const getDashboardSectionOrder = query({
   args: { supabaseId: v.string() },

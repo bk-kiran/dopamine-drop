@@ -9,18 +9,20 @@ async function getUserBySupabaseId(ctx: any, supabaseId: string) {
     .first()
 }
 
-// Helper: update streak
-async function updateStreak(ctx: any, user: any) {
+// Helper: update streak (with shield protection and milestone awards)
+async function updateStreak(ctx: any, user: any): Promise<{ newStreak: number; shieldUsed: boolean; protectedStreak: number | null }> {
   const today = new Date().toISOString().split('T')[0]
   const lastActivity = user.lastActivityDate
+  let currentShields = user.streakShields ?? 0
 
   let newStreak = user.streakCount || 0
+  let shieldUsed = false
 
   if (!lastActivity) {
     newStreak = 1
   } else if (lastActivity === today) {
-    // Already updated today, no change
-    return newStreak
+    // Already updated today — no change, no shield consumed
+    return { newStreak, shieldUsed: false, protectedStreak: null }
   } else {
     const lastDate = new Date(lastActivity)
     const todayDate = new Date(today)
@@ -29,7 +31,44 @@ async function updateStreak(ctx: any, user: any) {
     if (diffDays === 1) {
       newStreak = (user.streakCount || 0) + 1
     } else {
-      newStreak = 1
+      // Missed day(s) — consume shield or reset
+      if (currentShields > 0) {
+        currentShields -= 1
+        newStreak = user.streakCount || 1
+        shieldUsed = true
+        await ctx.db.insert('pointsLedger', {
+          userId: user._id,
+          delta: 0,
+          reason: 'shield_used',
+        })
+      } else {
+        newStreak = 1
+      }
+    }
+  }
+
+  // Milestone shield awards (7, 14, 30 — once each)
+  const shieldMilestones = [
+    { streak: 7,  reason: 'shield_milestone_7' },
+    { streak: 14, reason: 'shield_milestone_14' },
+    { streak: 30, reason: 'shield_milestone_30' },
+  ]
+  const userLedger = await ctx.db
+    .query('pointsLedger')
+    .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+    .collect()
+
+  for (const milestone of shieldMilestones) {
+    if (newStreak === milestone.streak) {
+      const alreadyAwarded = userLedger.some((e: any) => e.reason === milestone.reason)
+      if (!alreadyAwarded && currentShields < 3) {
+        currentShields = Math.min(3, currentShields + 1)
+        await ctx.db.insert('pointsLedger', {
+          userId: user._id,
+          delta: 0,
+          reason: milestone.reason,
+        })
+      }
     }
   }
 
@@ -39,9 +78,10 @@ async function updateStreak(ctx: any, user: any) {
     streakCount: newStreak,
     longestStreak,
     lastActivityDate: today,
+    streakShields: Math.max(0, currentShields),
   })
 
-  return newStreak
+  return { newStreak, shieldUsed, protectedStreak: shieldUsed ? newStreak : null }
 }
 
 // Get all custom tasks for a user
@@ -194,14 +234,20 @@ export const completeCustomTask = mutation({
       isUrgent: false,
     })
 
-    // Award exact points (no early/late calculation)
-    const pointsToAward = task.pointsValue
+    // Check 2x XP multiplier day
+    const todayDayStr = String(new Date().getDay()) // '0'=Sun … '6'=Sat
+    const multiplierActive = !!user.xpMultiplierDay && user.xpMultiplierDay === todayDayStr
+
+    // Award exact points (no early/late calculation), doubled if multiplier active
+    const basePoints = task.pointsValue
+    const pointsToAward = multiplierActive ? basePoints * 2 : basePoints
+    const reasonStr = multiplierActive ? 'custom_task (2x Multiplier!)' : 'custom_task'
 
     await ctx.db.insert('pointsLedger', {
       userId: user._id,
       customTaskId: args.taskId,
       delta: pointsToAward,
-      reason: 'custom_task',
+      reason: reasonStr,
     })
 
     await ctx.db.patch(user._id, {
@@ -209,9 +255,14 @@ export const completeCustomTask = mutation({
     })
 
     // Update streak
-    await updateStreak(ctx, user)
+    const streakResult = await updateStreak(ctx, user)
 
-    return { pointsAwarded: pointsToAward }
+    return {
+      pointsAwarded: pointsToAward,
+      multiplierActive,
+      shieldUsed: streakResult.shieldUsed,
+      protectedStreak: streakResult.protectedStreak,
+    }
   },
 })
 

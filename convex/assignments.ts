@@ -310,11 +310,14 @@ export const manuallyCompleteAssignment = mutation({
       }
     }
 
-    // Update streak
+    // Update streak (with shield protection)
     const today = new Date().toISOString().split('T')[0]
     const lastActivityDate = user.lastActivityDate
+    let currentShields = user.streakShields ?? 0
 
     let newStreak = 1
+    let shieldUsed = false
+
     if (lastActivityDate) {
       const lastDate = new Date(lastActivityDate)
       const todayDate = new Date(today)
@@ -323,19 +326,61 @@ export const manuallyCompleteAssignment = mutation({
       )
 
       if (daysDiff === 0) {
-        // Same day, keep current streak
         newStreak = user.streakCount || 1
       } else if (daysDiff === 1) {
-        // Consecutive day, increment streak
         newStreak = (user.streakCount || 0) + 1
       } else {
-        // Streak broken, reset to 1
-        newStreak = 1
+        // Missed day(s) — consume a shield or reset
+        if (currentShields > 0) {
+          currentShields -= 1
+          newStreak = user.streakCount || 1
+          shieldUsed = true
+          await ctx.db.insert('pointsLedger', {
+            userId: user._id,
+            delta: 0,
+            reason: 'shield_used',
+          })
+        } else {
+          newStreak = 1
+        }
+      }
+    }
+
+    // Milestone shield awards (7, 14, 30 day streaks — once each)
+    const shieldMilestones = [
+      { streak: 7,  reason: 'shield_milestone_7' },
+      { streak: 14, reason: 'shield_milestone_14' },
+      { streak: 30, reason: 'shield_milestone_30' },
+    ]
+    const userLedger = await ctx.db
+      .query('pointsLedger')
+      .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+      .collect()
+
+    for (const milestone of shieldMilestones) {
+      if (newStreak === milestone.streak) {
+        const alreadyAwarded = userLedger.some((e: any) => e.reason === milestone.reason)
+        if (!alreadyAwarded && currentShields < 3) {
+          currentShields = Math.min(3, currentShields + 1)
+          await ctx.db.insert('pointsLedger', {
+            userId: user._id,
+            delta: 0,
+            reason: milestone.reason,
+          })
+        }
       }
     }
 
     // Calculate streak bonus
     const streakBonus = newStreak >= 3 ? 5 : 0
+
+    // Check 2x XP multiplier day
+    const todayDayStr = String(now.getDay()) // '0'=Sun … '6'=Sat
+    const multiplierActive = !!user.xpMultiplierDay && user.xpMultiplierDay === todayDayStr
+
+    const finalBasePoints = multiplierActive ? basePoints * 2 : basePoints
+    const finalStreakBonus = multiplierActive ? streakBonus * 2 : streakBonus
+    const multiplierSuffix = multiplierActive ? ' (2x Multiplier!)' : ''
 
     // Update assignment status
     await ctx.db.patch(args.assignmentId, {
@@ -348,31 +393,35 @@ export const manuallyCompleteAssignment = mutation({
     await ctx.db.insert('pointsLedger', {
       userId: user._id,
       assignmentId: args.assignmentId,
-      delta: basePoints,
-      reason,
+      delta: finalBasePoints,
+      reason: reason + multiplierSuffix,
     })
 
     // Add streak bonus if applicable
-    if (streakBonus > 0) {
+    if (finalStreakBonus > 0) {
       await ctx.db.insert('pointsLedger', {
         userId: user._id,
         assignmentId: args.assignmentId,
-        delta: streakBonus,
-        reason: 'streak_bonus',
+        delta: finalStreakBonus,
+        reason: 'streak_bonus' + multiplierSuffix,
       })
     }
 
     // Update user stats
     await ctx.db.patch(user._id, {
-      totalPoints: (user.totalPoints || 0) + basePoints + streakBonus,
+      totalPoints: (user.totalPoints || 0) + finalBasePoints + finalStreakBonus,
       streakCount: newStreak,
       longestStreak: Math.max(newStreak, user.longestStreak || 0),
       lastActivityDate: today,
+      streakShields: Math.max(0, currentShields),
     })
 
     return {
-      pointsAwarded: basePoints + streakBonus,
+      pointsAwarded: finalBasePoints + finalStreakBonus,
       reason,
+      multiplierActive,
+      shieldUsed,
+      protectedStreak: shieldUsed ? newStreak : null,
       assignment: await ctx.db.get(args.assignmentId),
     }
   },

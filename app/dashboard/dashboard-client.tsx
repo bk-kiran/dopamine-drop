@@ -20,7 +20,8 @@ import { CourseSection } from './course-section'
 import { AutoSync } from './auto-sync'
 import { AddTaskModal } from '@/components/add-task-modal'
 import { SortableSection } from '@/components/sortable-section'
-import { Flame, Zap, RefreshCw, Sun, Moon, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check } from 'lucide-react'
+import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
+import { Flame, Zap, RefreshCw, Sun, Moon, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
@@ -125,6 +126,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const deleteCustomTask = useMutation(api.customTasks.deleteCustomTask)
   const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
   const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
+  const checkAndAwardAchievements = useMutation(api.achievements.checkAndAwardAchievements)
 
   // DnD section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>([])
@@ -238,6 +240,11 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     (course) => !hiddenCourses.includes(course.canvasCourseId)
   )
 
+  // Check if 2x XP multiplier is active today
+  const isMultiplierActive =
+    !!userData?.xpMultiplierDay &&
+    userData.xpMultiplierDay === String(new Date().getDay())
+
   // Get dynamic greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours()
@@ -259,11 +266,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       const result = await completeCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
       toast({
         title: `+${result.pointsAwarded} pts — ${taskTitle}`,
-        className: 'bg-green-50 border-green-200',
+        description: result.multiplierActive ? '2× XP multiplier applied!' : undefined,
+        className: result.multiplierActive ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200',
         duration: 4000,
       })
-      // Update daily challenge progress (fire and forget)
+      if (result.shieldUsed && result.protectedStreak) {
+        toast({
+          title: `Shield used! Your ${result.protectedStreak}-day streak is protected`,
+          description: 'A streak shield absorbed the missed day.',
+          className: 'bg-purple-50 border-purple-200',
+          duration: 5000,
+        })
+      }
+      // Update daily challenge progress + check achievements (fire and forget)
       updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
+      checkAndAwardAchievements({ supabaseId: supabaseUserId }).catch(console.error)
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally {
@@ -591,14 +608,24 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             <span className="text-xs font-semibold text-[var(--text-primary)]">
               {pointsData.streakCount} DAY STREAK
             </span>
+            {(userData?.streakShields ?? 0) > 0 && (
+              <StreakShieldIndicator shields={userData?.streakShields ?? 0} />
+            )}
           </div>
 
           {/* Points chip */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+          <div className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border transition-all duration-300 ${
+            isMultiplierActive ? 'border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.25)]' : 'border-[var(--glass-border)]'
+          }`}>
             <Zap className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
             <span className="text-xs font-semibold text-[var(--text-primary)]">
               {pointsData.totalPoints} PTS
             </span>
+            {isMultiplierActive && (
+              <span className="absolute -top-2 -right-2 px-1 py-0.5 rounded-full bg-purple-500 text-[9px] font-black text-white leading-none border border-purple-300/30 shadow-lg">
+                2×
+              </span>
+            )}
           </div>
 
           {/* Add Task button */}
@@ -635,6 +662,39 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </button>
         </div>
       </div>
+
+      {/* 2x XP Active Banner */}
+      <AnimatePresence>
+        {isMultiplierActive && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
+            className="mb-4 relative overflow-hidden rounded-2xl px-5 py-3 flex items-center gap-3 bg-gradient-to-r from-purple-600/20 via-purple-500/15 to-purple-600/20 border border-purple-500/30"
+          >
+            {/* Subtle animated shimmer */}
+            <motion.div
+              animate={{ x: ['0%', '100%', '0%'] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/10 to-transparent pointer-events-none"
+            />
+            <motion.div
+              animate={{ scale: [1, 1.15, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Zap className="w-4 h-4 text-purple-400 fill-purple-400/50 flex-shrink-0" />
+            </motion.div>
+            <div className="flex-1">
+              <span className="text-sm font-bold text-purple-300">2× XP Active Today</span>
+              <span className="text-xs text-purple-400/80 ml-2">— All points doubled!</span>
+            </div>
+            <span className="px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/40 text-[11px] font-black text-purple-300">
+              2×
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main content: DnD sortable sections */}
       {sectionOrder.length === 0 && courses.length === 0 && (!customTasks || customTasks.length === 0) ? (

@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { ConvexClientProvider } from "@/providers/convex-client-provider"
 import { Sidebar } from "@/components/sidebar"
 import { RightPanel } from "@/components/right-panel"
+import { AchievementToast } from "@/components/achievement-toast"
 
 export default function DashboardLayout({
   children,
@@ -33,6 +34,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </div>
+      <AchievementToast />
       <Toaster />
     </ConvexClientProvider>
   )

@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as achievements from "../achievements.js";
 import type * as assignments from "../assignments.js";
 import type * as challenges from "../challenges.js";
 import type * as courses from "../courses.js";
 import type * as customTasks from "../customTasks.js";
 import type * as files from "../files.js";
+import type * as leaderboard from "../leaderboard.js";
 import type * as points from "../points.js";
 import type * as rewards from "../rewards.js";
 import type * as seed from "../seed.js";
@@ -25,11 +27,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  achievements: typeof achievements;
   assignments: typeof assignments;
   challenges: typeof challenges;
   courses: typeof courses;
   customTasks: typeof customTasks;
   files: typeof files;
+  leaderboard: typeof leaderboard;
   points: typeof points;
   rewards: typeof rewards;
   seed: typeof seed;

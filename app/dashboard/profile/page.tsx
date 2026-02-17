@@ -4,14 +4,29 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check } from 'lucide-react'
+import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { redirect } from 'next/navigation'
+import { redirect, useRouter } from 'next/navigation'
 import { LevelCard } from '@/components/level-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CropAvatarModal } from '@/components/crop-avatar-modal'
 import { useToast } from '@/components/ui/use-toast'
+
+const ACHIEVEMENT_ICON_MAP: Record<string, React.ElementType> = {
+  Star, Moon, Zap, Shield, Flame, Trophy, Crown, Sun, Dumbbell, Target,
+}
+
+const ACHIEVEMENT_COLOR_MAP: Record<string, { bg: string; border: string; text: string; iconBg: string }> = {
+  yellow: { bg: 'bg-yellow-500/10', border: 'border-yellow-500/40', text: 'text-yellow-400', iconBg: 'bg-yellow-500/20' },
+  blue:   { bg: 'bg-blue-500/10',   border: 'border-blue-500/40',   text: 'text-blue-400',   iconBg: 'bg-blue-500/20' },
+  green:  { bg: 'bg-green-500/10',  border: 'border-green-500/40',  text: 'text-green-400',  iconBg: 'bg-green-500/20' },
+  orange: { bg: 'bg-orange-500/10', border: 'border-orange-500/40', text: 'text-orange-400', iconBg: 'bg-orange-500/20' },
+  red:    { bg: 'bg-red-500/10',    border: 'border-red-500/40',    text: 'text-red-400',    iconBg: 'bg-red-500/20' },
+  purple: { bg: 'bg-purple-500/10', border: 'border-purple-500/40', text: 'text-purple-400', iconBg: 'bg-purple-500/20' },
+  amber:  { bg: 'bg-amber-500/10',  border: 'border-amber-500/40',  text: 'text-amber-400',  iconBg: 'bg-amber-500/20' },
+  gold:   { bg: 'bg-yellow-500/10', border: 'border-yellow-400/50', text: 'text-yellow-300', iconBg: 'bg-yellow-400/20' },
+}
 
 const LEVELS = [
   { level: 1, name: 'Freshman', minPoints: 0 },
@@ -29,10 +44,12 @@ export default function ProfilePage() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const router = useRouter()
 
   // Get Supabase user
   useEffect(() => {
@@ -76,6 +93,12 @@ export default function ProfilePage() {
     supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
   )
 
+  // Get achievements
+  const userAchievements = useQuery(
+    api.achievements.getUserAchievements,
+    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+  )
+
   // Get avatar URL
   const avatarUrl = useQuery(
     api.users.getAvatarUrl,
@@ -86,6 +109,7 @@ export default function ProfilePage() {
   const updateDisplayName = useMutation(api.users.updateDisplayName)
   const updateAvatar = useMutation(api.users.updateAvatar)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
+  const setXpMultiplierDay = useMutation(api.users.setXpMultiplierDay)
 
   // Get initials
   const getInitials = () => {
@@ -120,6 +144,18 @@ export default function ProfilePage() {
   const handleCancelEdit = () => {
     setIsEditingName(false)
     setEditedName('')
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (error) {
+      console.error('Error logging out:', error)
+      setIsLoggingOut(false)
+    }
   }
 
   // Handle avatar upload
@@ -231,9 +267,19 @@ export default function ProfilePage() {
   return (
     <div className="container max-w-7xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Profile</h1>
-        <p className="text-[var(--text-muted)]">Manage your account and view your progress</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Profile</h1>
+          <p className="text-[var(--text-muted)]">Manage your account and view your progress</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20 hover:border-red-500/40 transition-all duration-200 disabled:opacity-50"
+        >
+          <LogOut className="w-4 h-4" />
+          {isLoggingOut ? 'Signing out...' : 'Sign out'}
+        </button>
       </div>
 
       {/* Profile Hero Card */}
@@ -495,6 +541,137 @@ export default function ProfilePage() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Achievements Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Achievements</h2>
+          {userAchievements && (
+            <span className="text-sm text-[var(--text-muted)]">
+              {userAchievements.filter((a: any) => a.unlocked).length}/{userAchievements.length} unlocked
+            </span>
+          )}
+        </div>
+
+        {userAchievements && userAchievements.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {userAchievements.map((achievement: any) => {
+              const colors = ACHIEVEMENT_COLOR_MAP[achievement.color] ?? ACHIEVEMENT_COLOR_MAP.purple
+              const IconComponent = ACHIEVEMENT_ICON_MAP[achievement.icon] ?? Star
+
+              if (achievement.unlocked) {
+                return (
+                  <motion.div
+                    key={achievement._id}
+                    whileHover={{ scale: 1.03 }}
+                    className={`p-5 rounded-2xl border backdrop-blur-md transition-all ${colors.bg} ${colors.border}`}
+                  >
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${colors.iconBg} border ${colors.border}`}>
+                      <IconComponent className={`w-6 h-6 ${colors.text}`} />
+                    </div>
+                    <p className={`text-sm font-bold mb-1 ${colors.text}`}>{achievement.name}</p>
+                    <p className="text-xs text-[var(--text-muted)] leading-snug mb-2">
+                      {achievement.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${colors.text}`}>
+                        +{achievement.bonusPoints} pts
+                      </span>
+                      {achievement.unlockedAt && (
+                        <span className="text-[10px] text-[var(--text-muted)]">
+                          {new Date(achievement.unlockedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              }
+
+              // Locked state
+              return (
+                <div
+                  key={achievement._id}
+                  className="p-5 rounded-2xl border bg-white/3 border-white/8 opacity-50"
+                >
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-white/5 border border-white/10 relative">
+                    <IconComponent className="w-6 h-6 text-[var(--text-muted)] grayscale" />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--glass-bg)] border border-white/20 flex items-center justify-center">
+                      <Lock className="w-2.5 h-2.5 text-[var(--text-muted)]" />
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold mb-1 text-[var(--text-muted)]">{achievement.name}</p>
+                  <p className="text-xs text-[var(--text-muted)] leading-snug mb-2 opacity-70">???</p>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    +{achievement.bonusPoints} pts
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+            <Trophy className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
+            <p className="text-[var(--text-muted)] text-sm">
+              Achievements will appear here once the pool is seeded.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 2x XP Day Settings */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">2x XP Day</h2>
+        <div className="px-6 py-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-purple-400 fill-purple-400/30" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-[var(--text-primary)] mb-0.5">
+                {userData?.xpMultiplierDay !== undefined
+                  ? `Active on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][Number(userData.xpMultiplierDay)]}`
+                  : 'Not set'}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mb-4">
+                All points earned on this day are doubled. Choose wisely!
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map((label, i) => {
+                  // JS getDay(): 0=Sun,1=Mon…6=Sat — map display order Mon–Sun to day numbers
+                  const dayNum = String(i === 6 ? 0 : i + 1)
+                  const isSelected = userData?.xpMultiplierDay === dayNum
+                  const isToday = String(new Date().getDay()) === dayNum
+                  return (
+                    <button
+                      key={label}
+                      onClick={() =>
+                        setXpMultiplierDay({
+                          supabaseId: supabaseUserId!,
+                          day: isSelected ? undefined : dayNum,
+                        }).catch(console.error)
+                      }
+                      disabled={!supabaseUserId}
+                      className={`relative px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border ${
+                        isSelected
+                          ? 'bg-purple-500/30 border-purple-400 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                          : 'bg-white/5 border-white/10 text-[var(--text-muted)] hover:border-purple-500/40 hover:text-purple-400'
+                      }`}
+                    >
+                      {label}
+                      {isToday && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-400 border border-[var(--glass-bg)]" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Crop Avatar Modal */}
