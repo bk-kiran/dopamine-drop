@@ -83,6 +83,12 @@ export function RightPanel() {
     supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
   )
 
+  // Get urgent custom tasks
+  const urgentCustomTasks = useQuery(
+    api.customTasks.getUrgentCustomTasks,
+    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+  )
+
   // Get user data
   const dashboardData = useQuery(
     api.users.getDashboardData,
@@ -92,7 +98,25 @@ export function RightPanel() {
   const userData = dashboardData?.user
   const pointsData = dashboardData?.visiblePoints
 
-  const urgentCount = urgentAssignments?.length || 0
+  // Merge and sort all urgent items by urgentOrder
+  const mergedUrgentItems = [
+    ...(urgentAssignments || []).map((a: any) => ({
+      _id: a._id,
+      title: a.title,
+      dueAt: a.dueAt,
+      urgentOrder: a.urgentOrder,
+      isCustomTask: false,
+    })),
+    ...(urgentCustomTasks || []).map((t: any) => ({
+      _id: t._id,
+      title: t.title,
+      dueAt: t.dueAt,
+      urgentOrder: t.urgentOrder,
+      isCustomTask: true,
+    })),
+  ].sort((a, b) => (a.urgentOrder ?? 0) - (b.urgentOrder ?? 0))
+
+  const urgentCount = mergedUrgentItems.length
 
   // Get user initials
   const getInitials = () => {
@@ -149,28 +173,37 @@ export function RightPanel() {
                 )}
               </div>
 
-          {/* Urgent assignments list */}
+          {/* Urgent items list (Canvas + custom tasks merged) */}
           <div className="space-y-2">
-            {urgentAssignments && urgentAssignments.length > 0 ? (
-              urgentAssignments.map((assignment) => {
-                const dueText = formatDueDate(assignment.dueAt)
+            {mergedUrgentItems.length > 0 ? (
+              mergedUrgentItems.map((item) => {
+                const dueText = formatDueDate(item.dueAt)
                 const isOverdue = dueText === 'OVERDUE'
-                const isUrgent = dueText.includes('HOUR') || dueText === 'DUE TOMORROW'
+                const isUrgentTime = dueText.includes('HOUR') || dueText === 'DUE TOMORROW'
 
                 return (
                   <motion.div
-                    key={assignment._id}
+                    key={item._id}
                     layout
                     className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/20 transition-all duration-200"
                   >
-                    <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1">
-                      {assignment.title}
-                    </h4>
-                    <p className={`text-xs font-bold uppercase tracking-wide ${
-                      isOverdue ? 'text-red-400' : isUrgent ? 'text-orange-400' : 'text-yellow-400'
-                    }`}>
-                      {dueText}
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1 truncate">
+                          {item.title}
+                        </h4>
+                        <p className={`text-xs font-bold uppercase tracking-wide ${
+                          isOverdue ? 'text-red-400' : isUrgentTime ? 'text-orange-400' : 'text-yellow-400'
+                        }`}>
+                          {dueText}
+                        </p>
+                      </div>
+                      {item.isCustomTask && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
+                          CUSTOM
+                        </span>
+                      )}
+                    </div>
                   </motion.div>
                 )
               })

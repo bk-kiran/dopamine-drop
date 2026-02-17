@@ -338,3 +338,39 @@ export const getLevel = query({
     }
   },
 })
+
+// Get dashboard section order
+export const getDashboardSectionOrder = query({
+  args: { supabaseId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) return null
+    return user.dashboardSectionOrder || null
+  },
+})
+
+// Update dashboard section order
+export const updateDashboardSectionOrder = mutation({
+  args: {
+    supabaseId: v.string(),
+    sectionOrder: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, {
+      dashboardSectionOrder: args.sectionOrder,
+    })
+
+    return args.sectionOrder
+  },
+})

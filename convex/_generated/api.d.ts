@@ -10,6 +10,7 @@
 
 import type * as assignments from "../assignments.js";
 import type * as courses from "../courses.js";
+import type * as customTasks from "../customTasks.js";
 import type * as files from "../files.js";
 import type * as points from "../points.js";
 import type * as rewards from "../rewards.js";
@@ -25,6 +26,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   assignments: typeof assignments;
   courses: typeof courses;
+  customTasks: typeof customTasks;
   files: typeof files;
   points: typeof points;
   rewards: typeof rewards;

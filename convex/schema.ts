@@ -20,6 +20,7 @@ export default defineSchema({
     streakCount: v.optional(v.number()),
     longestStreak: v.optional(v.number()),
     lastActivityDate: v.optional(v.string()), // YYYY-MM-DD format
+    dashboardSectionOrder: v.optional(v.array(v.string())), // e.g. ['course_123', 'my_tasks', 'course_456']
   }).index('by_auth_user_id', ['authUserId']),
 
   // Courses table
@@ -61,11 +62,32 @@ export default defineSchema({
   pointsLedger: defineTable({
     userId: v.id('users'),
     assignmentId: v.optional(v.id('assignments')), // Optional for non-assignment points
+    customTaskId: v.optional(v.id('customTasks')), // Optional for custom task points
     delta: v.number(),
-    reason: v.string(), // 'early_submission', 'on_time', 'late_submission', 'streak_bonus'
+    reason: v.string(), // 'early_submission', 'on_time', 'late_submission', 'streak_bonus', 'custom_task'
   })
     .index('by_user', ['userId'])
-    .index('by_assignment', ['assignmentId']),
+    .index('by_assignment', ['assignmentId'])
+    .index('by_custom_task', ['customTaskId']),
+
+  // Custom tasks table
+  customTasks: defineTable({
+    userId: v.id('users'),
+    title: v.string(),
+    description: v.optional(v.string()),
+    category: v.union(
+      v.literal('academic'),
+      v.literal('club'),
+      v.literal('work'),
+      v.literal('personal')
+    ),
+    pointsValue: v.float64(),
+    dueAt: v.optional(v.string()),
+    status: v.union(v.literal('pending'), v.literal('completed')),
+    completedAt: v.optional(v.string()),
+    isUrgent: v.optional(v.boolean()),
+    urgentOrder: v.optional(v.float64()),
+  }).index('by_user_id', ['userId']),
 
   // Rewards table
   rewards: defineTable({

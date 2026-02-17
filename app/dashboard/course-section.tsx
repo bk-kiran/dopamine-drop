@@ -6,7 +6,7 @@ import { api } from '@/convex/_generated/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronUp, Eye, EyeOff, Circle, CheckCircle2, Loader2, Flame, Check } from 'lucide-react'
+import { ChevronDown, ChevronUp, Circle, CheckCircle2, Loader2, Flame, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
 import {
@@ -47,7 +47,6 @@ interface Course {
 interface CourseSectionProps {
   course: Course
   assignments: Assignment[]
-  isHidden: boolean
   supabaseUserId: string
 }
 
@@ -88,16 +87,14 @@ function StatusBadge({ status }: { status: 'pending' | 'submitted' | 'missing' }
   )
 }
 
-export function CourseSection({ course, assignments, isHidden, supabaseUserId }: CourseSectionProps) {
+export function CourseSection({ course, assignments, supabaseUserId }: CourseSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [isToggling, setIsToggling] = useState(false)
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [uncompletingId, setUncompletingId] = useState<string | null>(null)
   const [assignmentToUntick, setAssignmentToUntick] = useState<{ id: string; title: string } | null>(null)
   const { toast } = useToast()
 
   // Use Convex mutations directly
-  const toggleHiddenCourse = useMutation(api.users.toggleHiddenCourse)
   const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
   const unCompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const toggleUrgent = useMutation(api.assignments.toggleUrgent)
@@ -115,43 +112,6 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
     const newState = !isCollapsed
     setIsCollapsed(newState)
     localStorage.setItem(`course-collapsed-${course.canvas_course_id}`, String(newState))
-  }
-
-  const handleToggleHide = async () => {
-    setIsToggling(true)
-    const willBeHidden = !isHidden
-    try {
-      // Call Convex mutation directly
-      await toggleHiddenCourse({
-        supabaseId: supabaseUserId,
-        canvasCourseId: course.canvas_course_id,
-        hide: willBeHidden,
-      })
-
-      // Show toast notification
-      if (willBeHidden) {
-        toast({
-          title: `${course.course_code} hidden`,
-          description: "Click 'Show all' at the bottom to restore.",
-          duration: 3000,
-        })
-      } else {
-        toast({
-          title: `${course.course_code} restored`,
-          duration: 3000,
-        })
-      }
-    } catch (error) {
-      console.error('Error toggling course visibility:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to update course visibility',
-        variant: 'destructive',
-        duration: 3000,
-      })
-    } finally {
-      setIsToggling(false)
-    }
   }
 
   const handleCompleteAssignment = async (assignmentId: string, assignmentTitle: string) => {
@@ -258,10 +218,6 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
     }
   }
 
-  if (isHidden) {
-    return null
-  }
-
   // Split assignments into pending and completed
   const pendingAssignments = assignments
     .filter((a) => a.status !== 'submitted' && !a.manuallyCompleted)
@@ -314,21 +270,6 @@ export function CourseSection({ course, assignments, isHidden, supabaseUserId }:
             >
               {pendingAssignments.length} PENDING
             </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleHide}
-              disabled={isToggling}
-              className="p-1.5 h-auto hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            >
-              {isHidden ? (
-                <Eye className="h-4 w-4 text-[var(--text-muted)]" />
-              ) : (
-                <EyeOff className="h-4 w-4 text-[var(--text-muted)]" />
-              )}
-            </Button>
           </div>
         </CardTitle>
       </CardHeader>

@@ -12,17 +12,43 @@
  * 6. Assignment sync uses diff checks to skip unchanged assignments (90%+ reduction in writes)
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { CourseSection } from './course-section'
-import { SyncButton } from './sync-button'
 import { AutoSync } from './auto-sync'
-import { Eye, EyeOff, ChevronDown, ChevronUp, Flame, Zap, RefreshCw, Sun, Moon } from 'lucide-react'
+import { AddTaskModal } from '@/components/add-task-modal'
+import { SortableSection } from '@/components/sortable-section'
+import { Flame, Zap, RefreshCw, Sun, Moon, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
+import { useToast } from '@/components/ui/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
 
 interface Assignment {
   _id: string
@@ -37,6 +63,8 @@ interface Assignment {
   courseName: string
   courseCode: string
   manuallyCompleted?: boolean
+  isUrgent?: boolean
+  urgentOrder?: number
 }
 
 interface Course {
@@ -47,14 +75,29 @@ interface Course {
   assignments: Assignment[]
 }
 
+type Category = 'academic' | 'club' | 'work' | 'personal'
+
+const CATEGORY_CONFIG: Record<Category, { label: string; icon: React.ElementType; color: string; borderColor: string }> = {
+  academic: { label: 'Academic', icon: BookOpen, color: 'text-purple-400', borderColor: 'border-purple-500/40' },
+  club: { label: 'Club', icon: Users, color: 'text-blue-400', borderColor: 'border-blue-500/40' },
+  work: { label: 'Work', icon: Briefcase, color: 'text-green-400', borderColor: 'border-green-500/40' },
+  personal: { label: 'Personal', icon: Heart, color: 'text-pink-400', borderColor: 'border-pink-500/40' },
+}
+
 interface DashboardClientProps {
   supabaseUserId: string
 }
 
 export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
-  const [isTrayExpanded, setIsTrayExpanded] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
+  const [editTask, setEditTask] = useState<any>(null)
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
+  const [uncompletingTaskId, setUncompletingTaskId] = useState<string | null>(null)
+  const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string } | null>(null)
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
 
   // Consolidated dashboard query (reduces 3 queries to 1)
   const dashboardData = useQuery(api.users.getDashboardData, {
@@ -73,9 +116,42 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     includeSubmittedSince: sevenDaysAgoISO,
   })
 
+  // Custom tasks query
+  const customTasks = useQuery(api.customTasks.getCustomTasks, { supabaseId: supabaseUserId })
+
   // Mutations
-  const toggleHiddenCourse = useMutation(api.users.toggleHiddenCourse)
-  const showAllCourses = useMutation(api.users.showAllCourses)
+  const completeCustomTask = useMutation(api.customTasks.completeCustomTask)
+  const uncompleteCustomTask = useMutation(api.customTasks.uncompleteCustomTask)
+  const deleteCustomTask = useMutation(api.customTasks.deleteCustomTask)
+  const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
+
+  // DnD section ordering
+  const [sectionOrder, setSectionOrder] = useState<string[]>([])
+  const [isDraggingActive, setIsDraggingActive] = useState(false)
+  const savedSectionOrder = useQuery(api.users.getDashboardSectionOrder, { supabaseId: supabaseUserId })
+  const updateDashboardSectionOrderMutation = useMutation(api.users.updateDashboardSectionOrder)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  // Initialize / sync section order from DB data
+  useEffect(() => {
+    if (savedSectionOrder === undefined || dashboardData === undefined) return
+    const allCoursesList = dashboardData.courses || []
+    const hiddenList = dashboardData.user?.hiddenCourses || []
+    const visibleCourseIds = allCoursesList
+      .filter((c: any) => !hiddenList.includes(c.canvasCourseId))
+      .map((c: any) => `course_${c.canvasCourseId}`)
+    const allSectionIds = [...visibleCourseIds, 'my_tasks']
+    if (!savedSectionOrder) {
+      setSectionOrder(allSectionIds)
+      return
+    }
+    const validSaved = savedSectionOrder.filter((id: string) => allSectionIds.includes(id))
+    const newItems = allSectionIds.filter((id) => !savedSectionOrder.includes(id))
+    setSectionOrder([...validSaved, ...newItems])
+  }, [savedSectionOrder, dashboardData])
 
   // Debug logging
   console.log('[Dashboard] Supabase User ID:', supabaseUserId)
@@ -109,7 +185,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   // Note: Canvas token check is handled in the server component (page.tsx)
   // so we don't need to redirect here
 
-  const hiddenCourses = userData?.hiddenCourses || []
+  const hiddenCourses: string[] = userData?.hiddenCourses || []
 
   // Create a map of courses with their assignments
   const courseMap = new Map<string, Course>()
@@ -156,37 +232,10 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   const courses = Array.from(courseMap.values())
 
-  // Filter visible and hidden courses
+  // Only show visible (non-hidden) courses
   const visibleCourses = courses.filter(
     (course) => !hiddenCourses.includes(course.canvasCourseId)
   )
-  const hiddenCoursesData = courses.filter(
-    (course) => hiddenCourses.includes(course.canvasCourseId)
-  )
-  const hiddenCount = hiddenCoursesData.length
-
-  // Handle show all
-  const handleShowAll = async () => {
-    try {
-      await showAllCourses({ supabaseId: supabaseUserId })
-      setIsTrayExpanded(false)
-    } catch (error) {
-      console.error('Error showing all courses:', error)
-    }
-  }
-
-  // Handle toggle individual course
-  const handleToggleIndividualCourse = async (canvasCourseId: string) => {
-    try {
-      await toggleHiddenCourse({
-        supabaseId: supabaseUserId,
-        canvasCourseId,
-        hide: false,
-      })
-    } catch (error) {
-      console.error('Error unhiding course:', error)
-    }
-  }
 
   // Get dynamic greeting based on time of day
   const getGreeting = () => {
@@ -200,6 +249,76 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const getFirstName = () => {
     if (!userData?.displayName) return ''
     return userData.displayName.split(' ')[0]
+  }
+
+  // Custom task handlers
+  const handleCompleteTask = async (taskId: string, taskTitle: string) => {
+    setCompletingTaskId(taskId)
+    try {
+      const result = await completeCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      toast({
+        title: `+${result.pointsAwarded} pts — ${taskTitle}`,
+        className: 'bg-green-50 border-green-200',
+        duration: 4000,
+      })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
+    } finally {
+      setCompletingTaskId(null)
+    }
+  }
+
+  const handleConfirmUntickTask = async () => {
+    if (!taskToUntick) return
+    setUncompletingTaskId(taskToUntick.id)
+    setTaskToUntick(null)
+    try {
+      const result = await uncompleteCustomTask({ taskId: taskToUntick.id as any, supabaseId: supabaseUserId })
+      toast({
+        title: `Task unticked — ${result.pointsRemoved} pts removed`,
+        description: taskToUntick.title,
+        className: 'bg-orange-50 border-orange-200',
+        duration: 4000,
+      })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
+    } finally {
+      setUncompletingTaskId(null)
+    }
+  }
+
+  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+    setDeletingTaskId(taskId)
+    try {
+      await deleteCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      toast({ title: `"${taskTitle}" deleted`, duration: 3000 })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
+    } finally {
+      setDeletingTaskId(null)
+    }
+  }
+
+  const handleToggleUrgentTask = async (taskId: string) => {
+    try {
+      const result = await toggleUrgentCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      toast({
+        description: result.isUrgent ? (
+          <span className="flex items-center gap-1.5">
+            <Flame className="w-3 h-3 text-orange-500 fill-orange-500" />
+            Marked as urgent
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <Check className="w-3 h-3 text-gray-500" />
+            No longer urgent
+          </span>
+        ),
+        duration: 2000,
+      })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
+    }
   }
 
   // Handle manual sync
@@ -223,6 +342,232 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       setIsSyncing(false)
     }
   }
+
+  // Handle drag end for section reordering
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setIsDraggingActive(false)
+    if (!over || active.id === over.id) return
+    const oldIndex = sectionOrder.indexOf(active.id as string)
+    const newIndex = sectionOrder.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    const newOrder = arrayMove(sectionOrder, oldIndex, newIndex)
+    setSectionOrder(newOrder)
+    try {
+      await updateDashboardSectionOrderMutation({
+        supabaseId: supabaseUserId,
+        sectionOrder: newOrder,
+      })
+    } catch {
+      setSectionOrder(sectionOrder)
+    }
+  }
+
+  // My Tasks section content (rendered inside SortableSection)
+  const myTasksContent = (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">MY TASKS</h3>
+        <button
+          onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
+          className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+        >
+          <Plus className="w-3 h-3" /> Add task
+        </button>
+      </div>
+
+      {!customTasks || customTasks.length === 0 ? (
+        <Card className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/8">
+          <CardContent className="py-10 text-center">
+            <p className="text-sm text-[var(--text-muted)]">No custom tasks yet.</p>
+            <button
+              onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
+              className="mt-3 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-2"
+            >
+              Add your first task →
+            </button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {(Object.keys(CATEGORY_CONFIG) as Category[]).map(cat => {
+            const catTasks = customTasks.filter((t: any) => t.category === cat)
+            if (catTasks.length === 0) return null
+            const { label, icon: Icon, color, borderColor } = CATEGORY_CONFIG[cat]
+
+            const pendingTasks = catTasks.filter((t: any) => t.status === 'pending')
+            const completedTasks = catTasks.filter((t: any) => t.status === 'completed')
+
+            return (
+              <Card key={cat} className={`rounded-2xl bg-white/5 backdrop-blur-md border border-white/8 hover:border-purple-400/20 transition-all duration-300 border-l-4 ${borderColor}`}>
+                <div className="px-6 pt-4 pb-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon className={`w-4 h-4 ${color}`} />
+                    <span className={`text-xs font-bold uppercase tracking-widest ${color}`}>{label}</span>
+                    {pendingTasks.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30">
+                        {pendingTasks.length} PENDING
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <AnimatePresence mode="popLayout">
+                      {pendingTasks.map((task: any) => {
+                        const isCompleting = completingTaskId === task._id
+
+                        return (
+                          <motion.div
+                            key={task._id}
+                            layout="position"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-500/5 transition-colors duration-200 group/task"
+                          >
+                            <button
+                              onClick={() => handleCompleteTask(task._id, task.title)}
+                              disabled={isCompleting}
+                              className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 opacity-0 group-hover/task:opacity-100"
+                            >
+                              {isCompleting ? (
+                                <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+                              ) : (
+                                <Circle className="h-6 w-6" />
+                              )}
+                            </button>
+
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">{task.title}</h3>
+                              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
+                                {task.dueAt && (
+                                  <>
+                                    <span>{new Date(task.dueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
+                                <span>{task.pointsValue} pts</span>
+                              </div>
+                            </div>
+
+                            {/* Flame urgent button */}
+                            <button
+                              onClick={() => handleToggleUrgentTask(task._id)}
+                              className={`p-1 rounded hover:bg-orange-50 transition-colors ${task.isUrgent ? '' : 'opacity-0 group-hover/task:opacity-100'}`}
+                            >
+                              <Flame className={`w-4 h-4 ${task.isUrgent ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
+                            </button>
+
+                            {/* Edit button */}
+                            <button
+                              onClick={() => { setEditTask(task); setIsAddTaskOpen(true) }}
+                              className="p-1 rounded hover:bg-purple-500/10 text-[var(--text-muted)] hover:text-purple-400 opacity-0 group-hover/task:opacity-100 transition-all"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Delete button */}
+                            <button
+                              onClick={() => handleDeleteTask(task._id, task.title)}
+                              disabled={deletingTaskId === task._id}
+                              className="p-1 rounded hover:bg-red-500/10 text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all"
+                            >
+                              {deletingTaskId === task._id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+
+                            {/* Due date dot */}
+                            {task.dueAt && (() => {
+                              const hours = (new Date(task.dueAt).getTime() - new Date().getTime()) / (1000 * 60 * 60)
+                              if (hours < 0) return <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+                              if (hours < 24) return <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
+                              if (hours / 24 <= 3) return <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+                              return <div className="w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />
+                            })()}
+                          </motion.div>
+                        )
+                      })}
+                    </AnimatePresence>
+
+                    {/* Divider */}
+                    {pendingTasks.length > 0 && completedTasks.length > 0 && (
+                      <div className="flex items-center gap-3 my-3">
+                        <div className="flex-1 border-t border-[var(--glass-border)]" />
+                        <span className="text-xs text-[var(--text-muted)]">Completed</span>
+                        <div className="flex-1 border-t border-[var(--glass-border)]" />
+                      </div>
+                    )}
+
+                    {/* Completed tasks */}
+                    <AnimatePresence mode="popLayout">
+                      {completedTasks.map((task: any) => {
+                        const isUncompleting = uncompletingTaskId === task._id
+                        return (
+                          <motion.div
+                            key={task._id}
+                            layout="position"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-50 group/task"
+                          >
+                            <button
+                              onClick={() => setTaskToUntick({ id: task._id, title: task.title })}
+                              disabled={isUncompleting}
+                              className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors opacity-0 group-hover/task:opacity-100"
+                            >
+                              {isUncompleting ? (
+                                <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                              ) : (
+                                <CheckCircle2 className="h-6 w-6" />
+                              )}
+                            </button>
+
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-[var(--text-primary)] text-sm truncate line-through">{task.title}</h3>
+                              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
+                                {task.dueAt && (
+                                  <>
+                                    <span>{new Date(task.dueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
+                                <span>{task.pointsValue} pts</span>
+                              </div>
+                            </div>
+
+                            {/* Delete completed task */}
+                            <button
+                              onClick={() => handleDeleteTask(task._id, task.title)}
+                              disabled={deletingTaskId === task._id}
+                              className="p-1 rounded hover:bg-red-500/10 text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all"
+                            >
+                              {deletingTaskId === task._id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+
+                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                          </motion.div>
+                        )
+                      })}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div className="container max-w-6xl mx-auto px-4 py-6">
@@ -253,6 +598,16 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             </span>
           </div>
 
+          {/* Add Task button */}
+          <button
+            onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-200 text-purple-400"
+            title="Add custom task"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">ADD TASK</span>
+          </button>
+
           {/* Sync button */}
           <button
             onClick={handleSync}
@@ -278,7 +633,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         </div>
       </div>
 
-      {courses.length === 0 ? (
+      {/* Main content: DnD sortable sections */}
+      {sectionOrder.length === 0 && courses.length === 0 && (!customTasks || customTasks.length === 0) ? (
         <Card>
           <CardContent className="py-10 text-center">
             <p className="text-muted-foreground mb-4">
@@ -287,108 +643,92 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </CardContent>
         </Card>
       ) : (
-        <>
-          <div className="space-y-6">
-            {visibleCourses.map((course) => (
-              <CourseSection
-                key={course.canvasCourseId}
-                course={{
-                  id: course._id,
-                  name: course.name,
-                  course_code: course.courseCode,
-                  canvas_course_id: course.canvasCourseId,
-                }}
-                assignments={course.assignments.map((a) => ({
-                  id: a._id,
-                  title: a.title,
-                  due_at: a.dueAt,
-                  points_possible: a.pointsPossible,
-                  status: a.status,
-                  submitted_at: a.submittedAt,
-                  manuallyCompleted: a.manuallyCompleted,
-                  isUrgent: a.isUrgent,
-                }))}
-                isHidden={hiddenCourses.includes(course.canvasCourseId)}
-                supabaseUserId={supabaseUserId}
-              />
-            ))}
-          </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={() => setIsDraggingActive(true)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setIsDraggingActive(false)}
+        >
+          <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+            <div className="space-y-6">
+              {sectionOrder.map((sectionId) => {
+                if (sectionId === 'my_tasks') {
+                  return (
+                    <SortableSection key="my_tasks" id="my_tasks" isDraggingAny={isDraggingActive}>
+                      {myTasksContent}
+                    </SortableSection>
+                  )
+                }
 
-          {hiddenCount > 0 && (
-            <Card className="mt-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)]">
-              {/* Collapsed tray header */}
-              <button
-                onClick={() => setIsTrayExpanded(!isTrayExpanded)}
-                className="w-full flex items-center justify-between p-4 hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors rounded-2xl"
-              >
-                <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-                  <EyeOff className="w-4 h-4" />
-                  <span>{hiddenCount} hidden course{hiddenCount > 1 ? 's' : ''}</span>
-                </div>
-                {isTrayExpanded ? (
-                  <ChevronUp className="h-4 w-4 text-[var(--text-muted)]" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
-                )}
-              </button>
+                // Course section
+                const canvasCourseId = sectionId.slice('course_'.length)
+                const course = visibleCourses.find(c => c.canvasCourseId === canvasCourseId)
+                if (!course) return null
 
-              {/* Expanded tray content */}
-              <AnimatePresence initial={false}>
-                {isTrayExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <CardContent className="pt-0 pb-4">
-                      <div className="space-y-2">
-                        {hiddenCoursesData.map((course) => (
-                          <div
-                            key={course.canvasCourseId}
-                            className="flex items-center justify-between p-3 rounded-xl hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors group"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <EyeOff className="h-4 w-4 text-[var(--text-muted)] flex-shrink-0" />
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-[var(--text-primary)] truncate">{course.name}</p>
-                                <p className="text-xs text-[var(--text-muted)]">{course.courseCode}</p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleIndividualCourse(course.canvasCourseId)}
-                              className="flex-shrink-0 hover:text-purple-500"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Show all button */}
-                      <div className="mt-4 pt-4 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleShowAll}
-                          className="w-full"
-                        >
-                          Show all courses
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Card>
-          )}
-        </>
+                return (
+                  <SortableSection key={sectionId} id={sectionId} isDraggingAny={isDraggingActive}>
+                    <CourseSection
+                      course={{
+                        id: course._id,
+                        name: course.name,
+                        course_code: course.courseCode,
+                        canvas_course_id: course.canvasCourseId,
+                      }}
+                      assignments={course.assignments.map((a) => ({
+                        id: a._id,
+                        title: a.title,
+                        due_at: a.dueAt,
+                        points_possible: a.pointsPossible,
+                        status: a.status,
+                        submitted_at: a.submittedAt,
+                        manuallyCompleted: a.manuallyCompleted,
+                        isUrgent: a.isUrgent,
+                      }))}
+                      supabaseUserId={supabaseUserId}
+                    />
+                  </SortableSection>
+                )
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <AutoSync />
+
+      {/* Add/Edit Task Modal */}
+      <AddTaskModal
+        open={isAddTaskOpen}
+        onClose={() => { setIsAddTaskOpen(false); setEditTask(null) }}
+        supabaseUserId={supabaseUserId}
+        editTask={editTask ? {
+          id: editTask._id,
+          title: editTask.title,
+          description: editTask.description,
+          category: editTask.category,
+          pointsValue: editTask.pointsValue,
+          dueAt: editTask.dueAt,
+        } : undefined}
+      />
+
+      {/* Untick confirmation dialog */}
+      <AlertDialog open={taskToUntick !== null} onOpenChange={(open) => !open && setTaskToUntick(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Completion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove points from your total for "{taskToUntick?.title}". This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTaskToUntick(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleConfirmUntickTask}>
+              Confirm & Remove Points
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

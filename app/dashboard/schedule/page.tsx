@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, BookOpen, Users, Briefcase, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import {
@@ -12,6 +12,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+
+type Category = 'academic' | 'club' | 'work' | 'personal'
+
+const CATEGORY_BORDER: Record<Category, string> = {
+  academic: 'border-l-4 border-purple-400',
+  club: 'border-l-4 border-blue-400',
+  work: 'border-l-4 border-green-400',
+  personal: 'border-l-4 border-pink-400',
+}
+
+const CATEGORY_ICON: Record<Category, React.ElementType> = {
+  academic: BookOpen,
+  club: Users,
+  work: Briefcase,
+  personal: Heart,
+}
 
 interface AssignmentWithCourse {
   _id: string
@@ -22,6 +38,22 @@ interface AssignmentWithCourse {
   courseName: string
   courseCode: string
   canvasCourseId: string
+}
+
+interface ScheduleItem {
+  _id: string
+  title: string
+  dueAt: string | null
+  isCustomTask: boolean
+  // Canvas fields
+  pointsPossible?: number
+  status?: 'pending' | 'submitted' | 'missing'
+  courseName?: string
+  courseCode?: string
+  // Custom task fields
+  category?: Category
+  pointsValue?: number
+  customStatus?: 'pending' | 'completed'
 }
 
 export default function SchedulePage() {
@@ -63,6 +95,12 @@ export default function SchedulePage() {
     supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
   )
 
+  // Get custom tasks (include those with dueAt)
+  const allCustomTasks = useQuery(
+    api.customTasks.getCustomTasks,
+    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+  )
+
   // Build set of visible course IDs (exclude hidden courses)
   const hiddenCourses = userData?.hiddenCourses || []
   const visibleCourseIds = useMemo(() => {
@@ -75,10 +113,40 @@ export default function SchedulePage() {
   }, [allCourses, hiddenCourses])
 
   // Filter to only visible assignments (single source of truth)
-  const assignments = useMemo(() => {
+  const canvasItems = useMemo((): ScheduleItem[] => {
     if (!allAssignments) return []
-    return allAssignments.filter(a => visibleCourseIds.has(a.courseId))
+    return allAssignments
+      .filter((a: any) => visibleCourseIds.has(a.courseId))
+      .map((a: any): ScheduleItem => ({
+        _id: a._id,
+        title: a.title,
+        dueAt: a.dueAt,
+        isCustomTask: false,
+        pointsPossible: a.pointsPossible,
+        status: a.status,
+        courseName: a.courseName,
+        courseCode: a.courseCode,
+      }))
   }, [allAssignments, visibleCourseIds])
+
+  // Custom tasks with dueAt dates
+  const customItems = useMemo((): ScheduleItem[] => {
+    if (!allCustomTasks) return []
+    return (allCustomTasks as any[])
+      .filter(t => !!t.dueAt)
+      .map((t: any): ScheduleItem => ({
+        _id: t._id,
+        title: t.title,
+        dueAt: t.dueAt,
+        isCustomTask: true,
+        category: t.category as Category,
+        pointsValue: t.pointsValue,
+        customStatus: t.status,
+      }))
+  }, [allCustomTasks])
+
+  // Unified schedule items
+  const scheduleItems = useMemo(() => [...canvasItems, ...customItems], [canvasItems, customItems])
 
   // Helper: Get Monday of the week for a given date
   function getWeekStart(date: Date): Date {
@@ -123,42 +191,36 @@ export default function SchedulePage() {
     return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
   }, [weekDates])
 
-  // Group assignments by day
+  // Group all schedule items by day
   const assignmentsByDay = useMemo(() => {
-    if (!assignments) return {}
-
-    const grouped: Record<string, AssignmentWithCourse[]> = {}
+    const grouped: Record<string, ScheduleItem[]> = {}
 
     weekDates.forEach(date => {
       const dateKey = date.toISOString().split('T')[0]
       grouped[dateKey] = []
     })
 
-    assignments.forEach(assignment => {
-      if (!assignment.dueAt) return
-
-      const dueDate = new Date(assignment.dueAt)
+    scheduleItems.forEach(item => {
+      if (!item.dueAt) return
+      const dueDate = new Date(item.dueAt)
       const dateKey = dueDate.toISOString().split('T')[0]
-
       if (grouped[dateKey]) {
-        grouped[dateKey].push(assignment)
+        grouped[dateKey].push(item)
       }
     })
 
     return grouped
-  }, [assignments, weekDates])
+  }, [scheduleItems, weekDates])
 
-  // Upcoming assignments (next 14 days)
+  // Upcoming schedule items (next 14 days)
   const upcomingAssignments = useMemo(() => {
-    if (!assignments) return []
-
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const twoWeeksFromNow = new Date()
     twoWeeksFromNow.setDate(today.getDate() + 14)
     twoWeeksFromNow.setHours(23, 59, 59, 999)
 
-    return assignments
+    return scheduleItems
       .filter(a => {
         if (!a.dueAt) return false
         const dueDate = new Date(a.dueAt)
@@ -168,39 +230,33 @@ export default function SchedulePage() {
         if (!a.dueAt || !b.dueAt) return 0
         return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
       })
-  }, [assignments])
+  }, [scheduleItems])
 
   // Group upcoming by date
   const upcomingByDate = useMemo(() => {
-    const grouped: Record<string, AssignmentWithCourse[]> = {}
+    const grouped: Record<string, ScheduleItem[]> = {}
 
-    upcomingAssignments.forEach(assignment => {
-      if (!assignment.dueAt) return
-
-      const dateKey = new Date(assignment.dueAt).toISOString().split('T')[0]
-
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = []
-      }
-
-      grouped[dateKey].push(assignment)
+    upcomingAssignments.forEach(item => {
+      if (!item.dueAt) return
+      const dateKey = new Date(item.dueAt).toISOString().split('T')[0]
+      if (!grouped[dateKey]) grouped[dateKey] = []
+      grouped[dateKey].push(item)
     })
 
     return grouped
   }, [upcomingAssignments])
 
-  // Get border color for assignment
-  const getBorderColor = (assignment: AssignmentWithCourse) => {
-    if (assignment.status === 'missing') return 'border-l-4 border-red-400'
-    if (assignment.status === 'submitted') return 'border-l-4 border-green-400'
-
-    if (assignment.dueAt) {
-      const hoursUntilDue = (new Date(assignment.dueAt).getTime() - new Date().getTime()) / (1000 * 60 * 60)
-      const daysUntilDue = hoursUntilDue / 24
-
-      if (daysUntilDue <= 3) return 'border-l-4 border-yellow-400'
+  // Get border color for schedule item
+  const getBorderColor = (item: ScheduleItem) => {
+    if (item.isCustomTask && item.category) {
+      return CATEGORY_BORDER[item.category]
     }
-
+    if (item.status === 'missing') return 'border-l-4 border-red-400'
+    if (item.status === 'submitted') return 'border-l-4 border-green-400'
+    if (item.dueAt) {
+      const hoursUntilDue = (new Date(item.dueAt).getTime() - new Date().getTime()) / (1000 * 60 * 60)
+      if (hoursUntilDue / 24 <= 3) return 'border-l-4 border-yellow-400'
+    }
     return 'border-l-4 border-purple-400'
   }
 
@@ -230,7 +286,7 @@ export default function SchedulePage() {
   }
 
   // Loading state
-  if (!assignments || !supabaseUserId || !userData || !allCourses) {
+  if (!allAssignments || !supabaseUserId || !userData || !allCourses) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
@@ -319,56 +375,68 @@ export default function SchedulePage() {
                 </p>
               </div>
 
-              {/* Assignment cards */}
+              {/* Assignment/task cards */}
               <div className="space-y-2 flex-1">
-                {dayAssignments.map(assignment => (
-                  <Popover key={assignment._id}>
-                    <PopoverTrigger asChild>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        className={`w-full text-left p-3 rounded-lg bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/30 transition-all ${getBorderColor(assignment)}`}
-                      >
-                        <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
-                          {assignment.title}
-                        </h3>
-                        <p className="text-xs text-[var(--text-muted)]">{assignment.courseCode}</p>
-                      </motion.button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
-                      <div className="space-y-3">
-                        <div>
-                          <h3 className="font-bold text-[var(--text-primary)] mb-1">{assignment.title}</h3>
-                          <p className="text-sm text-[var(--text-muted)]">{assignment.courseName}</p>
+                {dayAssignments.map(item => {
+                  const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
+                  return (
+                    <Popover key={item._id}>
+                      <PopoverTrigger asChild>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          className={`w-full text-left p-3 rounded-lg bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/30 transition-all ${getBorderColor(item)}`}
+                        >
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                            {item.title}
+                          </h3>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {item.isCustomTask
+                              ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                              : item.courseCode}
+                          </p>
+                        </motion.button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2">
+                            {CategoryIcon && <CategoryIcon className="w-4 h-4 mt-0.5 text-purple-400 flex-shrink-0" />}
+                            <div>
+                              <h3 className="font-bold text-[var(--text-primary)] mb-1">{item.title}</h3>
+                              <p className="text-sm text-[var(--text-muted)]">
+                                {item.isCustomTask ? `${item.category} task` : item.courseName}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-[var(--text-muted)]">Points:</span>
+                            <span className="font-bold text-purple-400">
+                              {item.isCustomTask ? item.pointsValue : item.pointsPossible} pts
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-[var(--text-muted)]">Due:</span>
+                            <span className="font-bold text-[var(--text-primary)]">
+                              {item.dueAt ? new Date(item.dueAt).toLocaleDateString('en-US', {
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                              }) : 'No due date'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-[var(--text-muted)]">Status:</span>
+                            <span className={`font-bold uppercase text-xs ${
+                              (item.isCustomTask ? item.customStatus : item.status) === 'completed' ||
+                              (item.isCustomTask ? item.customStatus : item.status) === 'submitted' ? 'text-green-400' :
+                              (!item.isCustomTask && item.status === 'missing') ? 'text-red-400' :
+                              'text-yellow-400'
+                            }`}>
+                              {item.isCustomTask ? item.customStatus : item.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-[var(--text-muted)]">Points:</span>
-                          <span className="font-bold text-purple-400">{assignment.pointsPossible} pts</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-[var(--text-muted)]">Due:</span>
-                          <span className="font-bold text-[var(--text-primary)]">
-                            {assignment.dueAt ? new Date(assignment.dueAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            }) : 'No due date'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-[var(--text-muted)]">Status:</span>
-                          <span className={`font-bold uppercase text-xs ${
-                            assignment.status === 'submitted' ? 'text-green-400' :
-                            assignment.status === 'missing' ? 'text-red-400' :
-                            'text-yellow-400'
-                          }`}>
-                            {assignment.status}
-                          </span>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                ))}
+                      </PopoverContent>
+                    </Popover>
+                  )
+                })}
               </div>
             </div>
           )
@@ -403,27 +471,37 @@ export default function SchedulePage() {
                     {dateHeader}
                   </h3>
 
-                  {/* Assignment rows */}
+                  {/* Schedule item rows */}
                   <div className="space-y-2">
-                    {dayAssignments.map(assignment => {
-                      const daysUntil = assignment.dueAt ? formatDaysUntil(assignment.dueAt) : null
+                    {dayAssignments.map(item => {
+                      const daysUntil = item.dueAt ? formatDaysUntil(item.dueAt) : null
+                      const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
 
                       return (
                         <motion.div
-                          key={assignment._id}
+                          key={item._id}
                           whileHover={{ scale: 1.01 }}
-                          className="flex items-center justify-between px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/20 transition-all"
+                          className={`flex items-center justify-between px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/20 transition-all ${getBorderColor(item)}`}
                         >
-                          <div className="flex-1 min-w-0 mr-4">
-                            <h4 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
-                              {assignment.title}
-                            </h4>
-                            <p className="text-xs text-[var(--text-muted)]">{assignment.courseCode}</p>
+                          <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
+                            {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                                {item.title}
+                              </h4>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {item.isCustomTask
+                                  ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                                  : item.courseCode}
+                              </p>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-6">
                             <div className="text-right">
-                              <p className="text-sm font-bold text-purple-400">{assignment.pointsPossible} pts</p>
+                              <p className="text-sm font-bold text-purple-400">
+                                {item.isCustomTask ? item.pointsValue : item.pointsPossible} pts
+                              </p>
                             </div>
 
                             {daysUntil && (
