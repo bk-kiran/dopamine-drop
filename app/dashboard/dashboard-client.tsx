@@ -124,6 +124,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const uncompleteCustomTask = useMutation(api.customTasks.uncompleteCustomTask)
   const deleteCustomTask = useMutation(api.customTasks.deleteCustomTask)
   const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
+  const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
 
   // DnD section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>([])
@@ -261,6 +262,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         className: 'bg-green-50 border-green-200',
         duration: 4000,
       })
+      // Update daily challenge progress (fire and forget)
+      updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally {

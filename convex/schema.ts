@@ -102,6 +102,32 @@ export default defineSchema({
     isActive: v.boolean(),
   }).index('by_rarity_and_active', ['rarity', 'isActive']),
 
+  // Daily challenge pool (static content, seeded by admin)
+  challengePool: defineTable({
+    title: v.string(),
+    description: v.string(),
+    type: v.union(
+      v.literal('submit_n'),
+      v.literal('early_submit'),
+      v.literal('streak'),
+      v.literal('points'),
+      v.literal('custom_task'),
+    ),
+    targetValue: v.float64(),
+    bonusPoints: v.float64(),
+    difficulty: v.union(v.literal('easy'), v.literal('medium'), v.literal('hard')),
+  }),
+
+  // Per-user daily challenge instances
+  userDailyChallenges: defineTable({
+    userId: v.id('users'),
+    challengeId: v.id('challengePool'),
+    date: v.string(), // 'YYYY-MM-DD'
+    progress: v.float64(),
+    completed: v.boolean(),
+    bonusAwarded: v.boolean(),
+  }).index('by_user_date', ['userId', 'date']),
+
   // User rewards table (junction table)
   userRewards: defineTable({
     userId: v.id('users'),

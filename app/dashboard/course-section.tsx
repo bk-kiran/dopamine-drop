@@ -98,6 +98,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
   const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
   const unCompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const toggleUrgent = useMutation(api.assignments.toggleUrgent)
+  const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -129,6 +130,9 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
         className: 'bg-green-50 border-green-200',
         duration: 4000,
       })
+
+      // Update daily challenge progress (fire and forget)
+      updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
     } catch (error: any) {
       console.error('Error completing assignment:', error)
       toast({

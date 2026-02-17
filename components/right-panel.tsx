@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Circle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LevelCard } from '@/components/level-card'
+import { DailyChallenges } from '@/components/daily-challenges'
 
 interface UrgentAssignment {
   _id: string
@@ -215,6 +216,9 @@ export function RightPanel() {
             )}
           </div>
         </div>
+
+        {/* Daily Challenges */}
+        {supabaseUserId && <DailyChallenges supabaseUserId={supabaseUserId} />}
 
         {/* Goal/Level Progress Card */}
         {supabaseUserId && <LevelCard supabaseUserId={supabaseUserId} />}
