@@ -1,3 +1,12 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: {
+    default: 'Sign in',
+    template: '%s | dopamine drop',
+  },
+}
+
 export default function AuthLayout({
   children,
 }: {
