@@ -159,6 +159,8 @@ export const upsertAssignment = mutation({
     status: v.union(v.literal('pending'), v.literal('submitted'), v.literal('missing')),
     submittedAt: v.optional(v.string()),
     canvasCourseId: v.string(),
+    gradeReceived: v.optional(v.float64()),
+    assignmentGroupName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -168,7 +170,7 @@ export const upsertAssignment = mutation({
       )
       .first()
 
-    const data = {
+    const data: any = {
       title: args.title,
       description: args.description,
       dueAt: args.dueAt,
@@ -177,6 +179,8 @@ export const upsertAssignment = mutation({
       submittedAt: args.submittedAt,
       canvasCourseId: args.canvasCourseId,
     }
+    if (args.gradeReceived !== undefined) data.gradeReceived = args.gradeReceived
+    if (args.assignmentGroupName !== undefined) data.assignmentGroupName = args.assignmentGroupName
 
     if (existing) {
       await ctx.db.patch(existing._id, data)

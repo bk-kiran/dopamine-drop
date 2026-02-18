@@ -10,6 +10,12 @@ export interface CanvasCourse {
   course_code: string
   enrollment_term_id: number
   workflow_state: string
+  enrollments?: {
+    type: string
+    computed_current_score: number | null
+    computed_final_score: number | null
+    computed_current_grade: string | null
+  }[]
 }
 
 export interface CanvasAssignment {
@@ -20,6 +26,7 @@ export interface CanvasAssignment {
   points_possible: number
   course_id: number
   submission?: CanvasSubmission | null
+  assignment_group?: { id: number; name: string; group_weight: number }
 }
 
 export interface CanvasSubmission {
@@ -29,6 +36,7 @@ export interface CanvasSubmission {
   submitted_at: string | null
   workflow_state: string
   late: boolean
+  score: number | null
 }
 
 export class CanvasClient {
@@ -88,7 +96,7 @@ export class CanvasClient {
    */
   async getCourses(): Promise<CanvasCourse[]> {
     return this.get<CanvasCourse[]>(
-      '/api/v1/courses?enrollment_state=active&per_page=50'
+      '/api/v1/courses?enrollment_state=active&per_page=50&include[]=total_scores'
     )
   }
 
@@ -99,7 +107,7 @@ export class CanvasClient {
    */
   async getAssignments(courseId: string): Promise<CanvasAssignment[]> {
     return this.get<CanvasAssignment[]>(
-      `/api/v1/courses/${courseId}/assignments?per_page=50&order_by=due_at&include[]=submission`
+      `/api/v1/courses/${courseId}/assignments?per_page=50&order_by=due_at&include[]=submission&include[]=assignment_group`
     )
   }
 }

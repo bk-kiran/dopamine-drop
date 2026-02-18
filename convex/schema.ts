@@ -31,6 +31,9 @@ export default defineSchema({
     canvasCourseId: v.string(),
     name: v.string(),
     courseCode: v.string(),
+    currentGrade: v.optional(v.float64()),  // percentage e.g. 87.5 (from Canvas enrollments)
+    currentScore: v.optional(v.float64()),  // raw score points
+    finalGrade: v.optional(v.float64()),    // final/projected percentage
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasCourseId']),
@@ -55,6 +58,8 @@ export default defineSchema({
     isUrgent: v.optional(v.boolean()), // Marked as urgent by user
     urgentOrder: v.optional(v.float64()), // Order in urgent list (for drag-drop)
     userNotes: v.optional(v.string()), // Personal notes on the assignment
+    gradeReceived: v.optional(v.float64()),      // Actual score received e.g. 18
+    assignmentGroupName: v.optional(v.string()), // e.g. 'Homework', 'Exams'
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])

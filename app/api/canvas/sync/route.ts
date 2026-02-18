@@ -81,12 +81,19 @@ export async function POST(request: NextRequest) {
 
     // Process each course
     for (const course of courses) {
+      // Extract grade from student enrollment
+      const studentEnrollment = course.enrollments?.find((e) => e.type === 'student')
+      const currentGrade = studentEnrollment?.computed_current_score ?? undefined
+      const finalGrade = studentEnrollment?.computed_final_score ?? undefined
+
       // Upsert course (create or update)
       const courseId = await convex.mutation(api.courses.upsertCourse, {
         userId: convexUserId,
         canvasCourseId: course.id.toString(),
         name: course.name,
         courseCode: course.course_code,
+        currentGrade,
+        finalGrade,
       })
 
       // Fetch and upsert assignments for this course
@@ -151,13 +158,18 @@ export async function POST(request: NextRequest) {
             const statusChanged = existingAssignment.status !== assignmentData.status
             const pointsChanged = existingAssignment.pointsPossible !== assignmentData.points_possible
             const descChanged = (existingAssignment.description || null) !== (assignmentData.description || null)
+            const gradeChanged = (existingAssignment.gradeReceived ?? null) !== (userSubmission?.score ?? null)
 
-            needsUpdate = titleChanged || dueAtChanged || statusChanged || pointsChanged || descChanged
+            needsUpdate = titleChanged || dueAtChanged || statusChanged || pointsChanged || descChanged || gradeChanged
 
             if (!needsUpdate) {
               console.log(`[Sync] Skipping unchanged assignment: ${assignmentData.title}`)
             }
           }
+
+          // Extract grade and group from assignment
+          const gradeReceived = userSubmission?.score ?? undefined
+          const assignmentGroupName = assignment.assignment_group?.name ?? undefined
 
           // Upsert assignment only if needed
           if (needsUpdate || isNewlySubmitted) {
@@ -172,6 +184,8 @@ export async function POST(request: NextRequest) {
               status: assignmentData.status as 'pending' | 'submitted' | 'missing',
               submittedAt: assignmentData.submitted_at || undefined,
               canvasCourseId: assignmentData.canvas_course_id,
+              gradeReceived,
+              assignmentGroupName,
             })
             totalSynced++
           }
