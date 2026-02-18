@@ -7,11 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft, ChevronRight, Calendar, BookOpen, Users, Briefcase, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
 
 type Category = 'academic' | 'club' | 'work' | 'personal'
 
@@ -50,15 +46,54 @@ interface ScheduleItem {
   status?: 'pending' | 'submitted' | 'missing'
   courseName?: string
   courseCode?: string
+  manuallyCompleted?: boolean
+  isUrgent?: boolean
+  description?: string | null
+  userNotes?: string
   // Custom task fields
   category?: Category
   pointsValue?: number
   customStatus?: 'pending' | 'completed'
+  customIsUrgent?: boolean
+  customDescription?: string | null
+  customUserNotes?: string
 }
 
 export default function SchedulePage() {
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()))
+  const [modalItem, setModalItem] = useState<ModalItem | null>(null)
+
+  const openModal = (item: ScheduleItem) => {
+    if (item.isCustomTask) {
+      setModalItem({
+        type: 'customTask',
+        id: item._id,
+        title: item.title,
+        description: item.customDescription,
+        dueAt: item.dueAt,
+        pointsValue: item.pointsValue ?? 0,
+        status: item.customStatus ?? 'pending',
+        isUrgent: item.customIsUrgent,
+        category: item.category ?? 'personal',
+        userNotes: item.customUserNotes,
+      })
+    } else {
+      setModalItem({
+        type: 'assignment',
+        id: item._id,
+        title: item.title,
+        description: item.description,
+        dueAt: item.dueAt,
+        pointsPossible: item.pointsPossible ?? 0,
+        status: item.status ?? 'pending',
+        manuallyCompleted: item.manuallyCompleted,
+        isUrgent: item.isUrgent,
+        courseName: item.courseName ?? item.courseCode ?? '',
+        userNotes: item.userNotes,
+      })
+    }
+  }
 
   // Get Supabase user ID
   useEffect(() => {
@@ -126,6 +161,10 @@ export default function SchedulePage() {
         status: a.status,
         courseName: a.courseName,
         courseCode: a.courseCode,
+        manuallyCompleted: a.manuallyCompleted,
+        isUrgent: a.isUrgent,
+        description: a.description,
+        userNotes: a.userNotes,
       }))
   }, [allAssignments, visibleCourseIds])
 
@@ -142,6 +181,9 @@ export default function SchedulePage() {
         category: t.category as Category,
         pointsValue: t.pointsValue,
         customStatus: t.status,
+        customIsUrgent: t.isUrgent,
+        customDescription: t.description,
+        customUserNotes: t.userNotes,
       }))
   }, [allCustomTasks])
 
@@ -377,66 +419,23 @@ export default function SchedulePage() {
 
               {/* Assignment/task cards */}
               <div className="space-y-2 flex-1">
-                {dayAssignments.map(item => {
-                  const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
-                  return (
-                    <Popover key={item._id}>
-                      <PopoverTrigger asChild>
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          className={`w-full text-left p-3 rounded-lg bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/30 transition-all ${getBorderColor(item)}`}
-                        >
-                          <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
-                            {item.title}
-                          </h3>
-                          <p className="text-xs text-[var(--text-muted)]">
-                            {item.isCustomTask
-                              ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
-                              : item.courseCode}
-                          </p>
-                        </motion.button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80 bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-2">
-                            {CategoryIcon && <CategoryIcon className="w-4 h-4 mt-0.5 text-purple-400 flex-shrink-0" />}
-                            <div>
-                              <h3 className="font-bold text-[var(--text-primary)] mb-1">{item.title}</h3>
-                              <p className="text-sm text-[var(--text-muted)]">
-                                {item.isCustomTask ? `${item.category} task` : item.courseName}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-[var(--text-muted)]">Points:</span>
-                            <span className="font-bold text-purple-400">
-                              {item.isCustomTask ? item.pointsValue : item.pointsPossible} pts
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-[var(--text-muted)]">Due:</span>
-                            <span className="font-bold text-[var(--text-primary)]">
-                              {item.dueAt ? new Date(item.dueAt).toLocaleDateString('en-US', {
-                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                              }) : 'No due date'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-[var(--text-muted)]">Status:</span>
-                            <span className={`font-bold uppercase text-xs ${
-                              (item.isCustomTask ? item.customStatus : item.status) === 'completed' ||
-                              (item.isCustomTask ? item.customStatus : item.status) === 'submitted' ? 'text-green-400' :
-                              (!item.isCustomTask && item.status === 'missing') ? 'text-red-400' :
-                              'text-yellow-400'
-                            }`}>
-                              {item.isCustomTask ? item.customStatus : item.status}
-                            </span>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )
-                })}
+                {dayAssignments.map(item => (
+                  <motion.button
+                    key={item._id}
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => openModal(item)}
+                    className={`w-full text-left p-3 rounded-lg bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/30 transition-all cursor-pointer ${getBorderColor(item)}`}
+                  >
+                    <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {item.isCustomTask
+                        ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                        : item.courseCode}
+                    </p>
+                  </motion.button>
+                ))}
               </div>
             </div>
           )
@@ -478,10 +477,11 @@ export default function SchedulePage() {
                       const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
 
                       return (
-                        <motion.div
+                        <motion.button
                           key={item._id}
                           whileHover={{ scale: 1.01 }}
-                          className={`flex items-center justify-between px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/20 transition-all ${getBorderColor(item)}`}
+                          onClick={() => openModal(item)}
+                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/20 transition-all cursor-pointer text-left ${getBorderColor(item)}`}
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
                             {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
@@ -512,7 +512,7 @@ export default function SchedulePage() {
                               </div>
                             )}
                           </div>
-                        </motion.div>
+                        </motion.button>
                       )
                     })}
                   </div>
@@ -522,6 +522,16 @@ export default function SchedulePage() {
           )}
         </div>
       </div>
+
+      {/* Details modal */}
+      {supabaseUserId && (
+        <AssignmentDetailsModal
+          open={modalItem !== null}
+          onClose={() => setModalItem(null)}
+          item={modalItem}
+          supabaseUserId={supabaseUserId}
+        />
+      )}
     </div>
   )
 }

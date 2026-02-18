@@ -341,6 +341,25 @@ export const deleteCustomTask = mutation({
   },
 })
 
+// Update personal notes on a custom task
+export const updateCustomTaskNotes = mutation({
+  args: {
+    taskId: v.id('customTasks'),
+    supabaseId: v.string(),
+    notes: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    if (!user) throw new Error('User not found')
+
+    const task = await ctx.db.get(args.taskId)
+    if (!task || task.userId !== user._id) throw new Error('Task not found')
+
+    await ctx.db.patch(args.taskId, { userNotes: args.notes })
+    return { success: true }
+  },
+})
+
 // Toggle urgent status on a custom task
 export const toggleUrgentCustomTask = mutation({
   args: {

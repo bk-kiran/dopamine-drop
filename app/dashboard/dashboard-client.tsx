@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { CourseSection } from './course-section'
 import { AutoSync } from './auto-sync'
 import { AddTaskModal } from '@/components/add-task-modal'
+import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
 import { SortableSection } from '@/components/sortable-section'
 import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
 import { Flame, Zap, RefreshCw, Sun, Moon, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
@@ -97,6 +98,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [uncompletingTaskId, setUncompletingTaskId] = useState<string | null>(null)
   const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string } | null>(null)
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
+  const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
@@ -458,7 +460,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                               )}
                             </button>
 
-                            <div className="flex-1 min-w-0">
+                            <button
+                              onClick={() => setTaskModalItem({
+                                type: 'customTask',
+                                id: task._id,
+                                title: task.title,
+                                description: task.description,
+                                dueAt: task.dueAt,
+                                pointsValue: task.pointsValue,
+                                status: task.status,
+                                isUrgent: task.isUrgent,
+                                category: task.category,
+                                userNotes: task.userNotes,
+                              })}
+                              className="flex-1 min-w-0 text-left cursor-pointer"
+                            >
                               <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">{task.title}</h3>
                               <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
                                 {task.dueAt && (
@@ -469,7 +485,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                                 )}
                                 <span>{task.pointsValue} pts</span>
                               </div>
-                            </div>
+                            </button>
 
                             {/* Flame urgent button */}
                             <button
@@ -548,7 +564,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                               )}
                             </button>
 
-                            <div className="flex-1 min-w-0">
+                            <button
+                              onClick={() => setTaskModalItem({
+                                type: 'customTask',
+                                id: task._id,
+                                title: task.title,
+                                description: task.description,
+                                dueAt: task.dueAt,
+                                pointsValue: task.pointsValue,
+                                status: task.status,
+                                isUrgent: task.isUrgent,
+                                category: task.category,
+                                userNotes: task.userNotes,
+                              })}
+                              className="flex-1 min-w-0 text-left cursor-pointer"
+                            >
                               <h3 className="font-medium text-[var(--text-primary)] text-sm truncate line-through">{task.title}</h3>
                               <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
                                 {task.dueAt && (
@@ -559,7 +589,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                                 )}
                                 <span>{task.pointsValue} pts</span>
                               </div>
-                            </div>
+                            </button>
 
                             {/* Delete completed task */}
                             <button
@@ -747,6 +777,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                         submitted_at: a.submittedAt,
                         manuallyCompleted: a.manuallyCompleted,
                         isUrgent: a.isUrgent,
+                        description: a.description,
+                        userNotes: (a as any).userNotes,
                       }))}
                       supabaseUserId={supabaseUserId}
                     />
@@ -773,6 +805,14 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           pointsValue: editTask.pointsValue,
           dueAt: editTask.dueAt,
         } : undefined}
+      />
+
+      {/* Custom task details modal */}
+      <AssignmentDetailsModal
+        open={taskModalItem !== null}
+        onClose={() => setTaskModalItem(null)}
+        item={taskModalItem}
+        supabaseUserId={supabaseUserId}
       />
 
       {/* Untick confirmation dialog */}

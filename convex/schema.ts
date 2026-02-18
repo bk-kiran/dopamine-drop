@@ -54,6 +54,7 @@ export default defineSchema({
     manuallyCompleted: v.optional(v.boolean()), // Manual tick-off by user
     isUrgent: v.optional(v.boolean()), // Marked as urgent by user
     urgentOrder: v.optional(v.float64()), // Order in urgent list (for drag-drop)
+    userNotes: v.optional(v.string()), // Personal notes on the assignment
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])
@@ -89,6 +90,7 @@ export default defineSchema({
     completedAt: v.optional(v.string()),
     isUrgent: v.optional(v.boolean()),
     urgentOrder: v.optional(v.float64()),
+    userNotes: v.optional(v.string()), // Personal notes on the task
   }).index('by_user_id', ['userId']),
 
   // Rewards table

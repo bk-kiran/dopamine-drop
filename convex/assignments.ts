@@ -591,3 +591,26 @@ export const reorderUrgentAssignments = mutation({
     return { success: true }
   },
 })
+
+// ─── Update personal notes on an assignment ───────────────────────────────────
+
+export const updateAssignmentNotes = mutation({
+  args: {
+    assignmentId: v.id('assignments'),
+    supabaseId: v.string(),
+    notes: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .first()
+    if (!user) throw new Error('User not found')
+
+    const assignment = await ctx.db.get(args.assignmentId)
+    if (!assignment || assignment.userId !== user._id) throw new Error('Assignment not found')
+
+    await ctx.db.patch(args.assignmentId, { userNotes: args.notes })
+    return { success: true }
+  },
+})

@@ -25,6 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
 
 interface Assignment {
   id: string
@@ -35,6 +36,8 @@ interface Assignment {
   submitted_at?: string | null
   manuallyCompleted?: boolean
   isUrgent?: boolean
+  description?: string | null
+  userNotes?: string
 }
 
 interface Course {
@@ -42,6 +45,7 @@ interface Course {
   name: string
   course_code: string
   canvas_course_id: string
+  display_name?: string
 }
 
 interface CourseSectionProps {
@@ -92,7 +96,28 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
   const [completingId, setCompletingId] = useState<string | null>(null)
   const [uncompletingId, setUncompletingId] = useState<string | null>(null)
   const [assignmentToUntick, setAssignmentToUntick] = useState<{ id: string; title: string } | null>(null)
+  const [modalItem, setModalItem] = useState<ModalItem | null>(null)
   const { toast } = useToast()
+
+  const parseCourseName = (name: string) => name.split('(')[0].trim()
+  const courseDisplayName = `${parseCourseName(course.name)} — ${course.course_code}`
+
+  const openModal = (assignment: Assignment) => {
+    const status = getAssignmentStatus(assignment)
+    setModalItem({
+      type: 'assignment',
+      id: assignment.id,
+      title: assignment.title,
+      description: assignment.description,
+      dueAt: assignment.due_at,
+      pointsPossible: assignment.points_possible,
+      status: status,
+      manuallyCompleted: assignment.manuallyCompleted,
+      isUrgent: assignment.isUrgent,
+      courseName: courseDisplayName,
+      userNotes: assignment.userNotes,
+    })
+  }
 
   // Use Convex mutations directly
   const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
@@ -253,12 +278,6 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
       return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
     })
 
-  // Parse course name to remove Canvas IDs and semester codes
-  const parseCourseName = (name: string) => {
-    // Take everything before the first opening parenthesis
-    return name.split('(')[0].trim()
-  }
-
   return (
     <Card className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/8 hover:border-purple-400/20 transition-all duration-300 mb-4">
       <CardHeader className="pb-3">
@@ -409,7 +428,10 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
                           </button>
                         )}
 
-                        <div className="flex-1 min-w-0 mr-4">
+                        <button
+                          onClick={() => openModal(assignment)}
+                          className="flex-1 min-w-0 mr-4 text-left cursor-pointer"
+                        >
                           <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">
                             {assignment.title}
                           </h3>
@@ -418,7 +440,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
                             <span>•</span>
                             <span>{assignment.points_possible} pts</span>
                           </div>
-                        </div>
+                        </button>
 
                         {/* Urgent flame icon - only for pending/missing assignments, shown on hover */}
                         {(checkboxState === 'pending' || checkboxState === 'missing') && (
@@ -521,7 +543,10 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
                             </TooltipProvider>
                           )}
 
-                          <div className="flex-1 min-w-0 mr-4">
+                          <button
+                            onClick={() => openModal(assignment)}
+                            className="flex-1 min-w-0 mr-4 text-left cursor-pointer"
+                          >
                             <h3 className="font-medium text-[var(--text-primary)] text-sm truncate line-through">
                               {assignment.title}
                             </h3>
@@ -530,7 +555,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
                               <span>•</span>
                               <span>{assignment.points_possible} pts</span>
                             </div>
-                          </div>
+                          </button>
 
                           {/* Green dot indicator for submitted */}
                           <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
@@ -544,6 +569,14 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Assignment details modal */}
+      <AssignmentDetailsModal
+        open={modalItem !== null}
+        onClose={() => setModalItem(null)}
+        item={modalItem}
+        supabaseUserId={supabaseUserId}
+      />
 
       {/* Confirmation dialog for unticking assignments */}
       <AlertDialog open={assignmentToUntick !== null} onOpenChange={(open) => !open && setAssignmentToUntick(null)}>
