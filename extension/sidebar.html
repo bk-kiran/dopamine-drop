@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dopamine drop</title>
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+  <div class="dd-sidebar">
+
+    <!-- ─── HEADER ──────────────────────────────────────────────────── -->
+    <div class="dd-header">
+      <div class="dd-logo">
+        <img src="icons/icon48.png" alt="dopamine drop">
+        <span>dopamine drop</span>
+      </div>
+      <div class="dd-stats">
+        <div class="dd-stat" title="Current streak">
+          <span class="dd-stat-icon">🔥</span>
+          <span class="dd-stat-value" id="streak">0</span>
+        </div>
+        <div class="dd-stat" title="Total points">
+          <span class="dd-stat-icon">⚡</span>
+          <span class="dd-stat-value" id="points">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── MINI CALENDAR ───────────────────────────────────────────── -->
+    <div class="dd-calendar">
+      <div class="dd-calendar-header">
+        <button id="prev-month" aria-label="Previous month">‹</button>
+        <span id="current-month">February 2026</span>
+        <button id="next-month" aria-label="Next month">›</button>
+      </div>
+      <!--
+        JS generates into #calendar-grid:
+          Row 0 — 7 × .dd-dow-header cells (Sun … Sat)
+          Row 1+ — .dd-day cells, each containing:
+            <span class="dd-day-num">15</span>
+            <span class="dd-day-dot"></span>   ← only when that day has due assignments
+        Classes on .dd-day: .today, .has-due, .other-month
+      -->
+      <div class="dd-calendar-grid" id="calendar-grid"></div>
+    </div>
+
+    <!-- ─── ASSIGNMENTS ──────────────────────────────────────────────── -->
+    <div class="dd-assignments">
+      <div class="dd-section-header">
+        <span>Upcoming</span>
+        <a id="dd-view-all" href="#" target="_blank" rel="noopener" class="dd-view-all">
+          View All →
+        </a>
+      </div>
+
+      <!-- Scrollable list area -->
+      <div class="dd-scroll">
+
+        <!-- Urgent assignments (due within 24 h or overdue) — prepended by JS -->
+        <div id="urgent-list" class="dd-urgent-section"></div>
+
+        <!-- Regular assignments — rendered by JS -->
+        <div id="assignments-list"></div>
+
+        <!-- Empty state — shown by JS when nothing is pending -->
+        <div id="dd-empty" class="dd-empty" style="display:none">
+          <div class="dd-empty-emoji">🎉</div>
+          <p>All caught up!</p>
+          <span>No pending assignments</span>
+        </div>
+
+        <!-- Loading skeletons — shown before first data fetch -->
+        <div id="dd-loading" class="dd-loading">
+          <div class="dd-skeleton"></div>
+          <div class="dd-skeleton"></div>
+          <div class="dd-skeleton"></div>
+          <div class="dd-skeleton" style="width:75%"></div>
+        </div>
+
+      </div><!-- /.dd-scroll -->
+
+      <!-- Footer -->
+      <div class="dd-footer">
+        <span id="hidden-count"></span>
+      </div>
+    </div><!-- /.dd-assignments -->
+
+  </div><!-- /.dd-sidebar -->
+
+  <!--
+    Convex browser bundle — bundled locally to satisfy Canvas CSP.
+    browser.bundle.js sets `var convex = { ConvexHttpClient, ... }` as a global;
+    the bridge script hoists ConvexHttpClient onto window for sidebar.js.
+    Rebuild by running: node extension/build-convex.js
+  -->
+  <script src="convex-client.js"></script>
+  <script>window.ConvexHttpClient = convex.ConvexHttpClient</script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

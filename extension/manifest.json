@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "dopamine drop for Canvas",
+  "version": "1.0.0",
+  "description": "Gamified Canvas To Do sidebar with points, streaks, and real-time sync",
+  "permissions": ["storage", "cookies"],
+  "host_permissions": [
+    "https://*.instructure.com/*",
+    "https://*.vercel.app/*",
+    "https://yourdomain.convex.cloud/*",
+    "http://localhost:3000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://*.instructure.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["sidebar.html", "sidebar.js", "sidebar.css", "convex-client.js", "icons/*.png"],
+      "matches": ["https://*.instructure.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
