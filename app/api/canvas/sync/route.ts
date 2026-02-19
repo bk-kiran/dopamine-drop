@@ -7,6 +7,8 @@ import { awardPoints } from '@/lib/points-engine'
 import { rollReward } from '@/lib/reward-roller'
 import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,10 +20,18 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      logSecurityEvent('unauthorized', { route: '/api/canvas/sync' })
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
+    }
+
+    // Rate-limit Canvas sync per user (expensive operation)
+    const rateLimitResponse = await checkRateLimit(user.id, 'sync')
+    if (rateLimitResponse) {
+      logSecurityEvent('rate_limit', { route: '/api/canvas/sync', userId: user.id })
+      return rateLimitResponse
     }
 
     // Get Convex client and user ID
@@ -234,10 +244,9 @@ export async function POST(request: NextRequest) {
                   newReward = reward
                 }
               } catch (gamificationError) {
-                console.error(
-                  `[Canvas Sync] Error during gamification for assignment ${assignment.id}:`,
-                  gamificationError
-                )
+                logInternalError('Canvas Sync gamification', gamificationError, {
+                  assignmentId: assignment.id,
+                })
               }
             }
             // Hidden courses: status updated above, gamification skipped entirely
@@ -246,7 +255,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Canvas Sync] Synced ${assignments.length} assignments for course ${course.name}`)
       } catch (error) {
-        console.error(`[Canvas Sync] Error fetching assignments for course ${course.id}:`, error)
+        logInternalError('Canvas Sync assignment fetch', error, { courseId: course.id })
       }
     }
 
@@ -272,7 +281,7 @@ export async function POST(request: NextRequest) {
       newReward,
     })
   } catch (error) {
-    console.error('[Canvas Sync] Unexpected error:', error)
+    logInternalError('Canvas Sync', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred during sync' },
       { status: 500 }

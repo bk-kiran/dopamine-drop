@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getConvexClient } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { validateInput, hiddenCourseSchema } from '@/lib/validation'
+import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
-// GET - Fetch user's hidden courses
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -13,10 +15,14 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      logSecurityEvent('unauthorized', { route: 'GET /api/user/hidden-courses' })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimitResponse = await checkRateLimit(user.id, 'api')
+    if (rateLimitResponse) {
+      logSecurityEvent('rate_limit', { route: 'GET /api/user/hidden-courses', userId: user.id })
+      return rateLimitResponse
     }
 
     const convex = getConvexClient()
@@ -28,7 +34,7 @@ export async function GET() {
       hidden_courses: convexUser?.hiddenCourses || [],
     })
   } catch (error) {
-    console.error('[Hidden Courses] Unexpected error:', error)
+    logInternalError('Hidden Courses GET', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
@@ -36,7 +42,6 @@ export async function GET() {
   }
 }
 
-// POST - Toggle a course ID in/out of hidden_courses array
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -46,29 +51,29 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      logSecurityEvent('unauthorized', { route: 'POST /api/user/hidden-courses' })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { courseId, action } = await request.json()
-
-    if (!['hide', 'show', 'clear'].includes(action)) {
-      return NextResponse.json(
-        { error: 'Invalid action. Must be hide, show, or clear' },
-        { status: 400 }
-      )
+    const rateLimitResponse = await checkRateLimit(user.id, 'mutations')
+    if (rateLimitResponse) {
+      logSecurityEvent('rate_limit', { route: 'POST /api/user/hidden-courses', userId: user.id })
+      return rateLimitResponse
     }
 
-    if ((action === 'hide' || action === 'show') && !courseId) {
-      return NextResponse.json(
-        { error: 'courseId is required for hide/show actions' },
-        { status: 400 }
-      )
+    // Validate input
+    const body = await request.json()
+    const validation = validateInput(hiddenCourseSchema, body)
+    if (!validation.success) {
+      logSecurityEvent('invalid_input', {
+        route: 'POST /api/user/hidden-courses',
+        userId: user.id,
+        error: validation.error,
+      })
+      return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+    const { courseId, action } = validation.data
 
-    // Fetch current hidden courses
     const convex = getConvexClient()
     const convexUser = await convex.query(api.users.getUser, {
       authUserId: user.id,
@@ -76,25 +81,23 @@ export async function POST(request: Request) {
 
     let hiddenCourses: string[] = convexUser?.hiddenCourses || []
 
-    // Handle different actions
     if (action === 'clear') {
       hiddenCourses = []
-    } else if (action === 'hide') {
+    } else if (action === 'hide' && courseId) {
       if (!hiddenCourses.includes(courseId)) {
         hiddenCourses.push(courseId)
       }
-    } else if (action === 'show') {
+    } else if (action === 'show' && courseId) {
       hiddenCourses = hiddenCourses.filter((id) => id !== courseId)
     }
 
-    // Update in database
     try {
       await convex.mutation(api.users.updateUser, {
         authUserId: user.id,
         data: { hiddenCourses },
       })
     } catch (updateError) {
-      console.error('[Hidden Courses] Error updating:', updateError)
+      logInternalError('Hidden Courses POST', updateError, { userId: user.id })
       return NextResponse.json(
         { error: 'Failed to update hidden courses' },
         { status: 500 }
@@ -106,7 +109,7 @@ export async function POST(request: Request) {
       success: true,
     })
   } catch (error) {
-    console.error('[Hidden Courses] Unexpected error:', error)
+    logInternalError('Hidden Courses POST', error)
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
