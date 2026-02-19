@@ -54,13 +54,6 @@ dopamine drop reimagines the traditional assignment tracker by applying game mec
 - **Private Leaderboards** — Invite-only friend competitions with anonymized rankings
 - **Profile Customization** — Avatar upload, display name, stat history
 
-### 🔐 Chrome Extension
-
-- **Canvas Sidebar** — Replaces Canvas's native To Do list with the dopamine drop tracker, injected directly into `#right-side`
-- **Offline-First** — Bundled Convex client (no CDN) satisfies Canvas's strict CSP
-- **Auth State Detection** — Four-state UI (Not Registered → No Token → Live Data) with contextual CTAs
-- **Real-Time Mutations** — Checkbox and urgent-flag toggles fire Convex HTTP mutations, re-render immediately
-
 ---
 
 ## 🏗️ Architecture
@@ -111,7 +104,6 @@ dopamine drop reimagines the traditional assignment tracker by applying game mec
 | **Canvas Integration** | Canvas LMS REST API |
 | **Encryption** | Node.js `crypto` — AES-256-GCM |
 | **Hosting** | Vercel (edge CDN, auto-deploy) |
-| **Chrome Extension** | Manifest V3, Convex HTTP client |
 
 ---
 
@@ -167,19 +159,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
-
-### Chrome Extension Setup
-
-```bash
-# Build the local Convex client bundle (avoids CDN CSP violations)
-node extension/build-convex.js
-
-# Then in Chrome:
-# 1. Navigate to chrome://extensions
-# 2. Enable "Developer mode"
-# 3. Click "Load unpacked" → select the extension/ folder
-# 4. Open any Canvas page — the sidebar appears in the right panel
-```
 
 ---
 
@@ -242,12 +221,6 @@ await convex.mutation(api.users.updateUser, {
   data: { canvasTokenEncrypted: encrypted, canvasTokenIv: iv }
 })
 ```
-
-### 5. Canvas CSP in Chrome Extension
-
-**Problem:** Canvas's Content Security Policy blocks scripts from `cdn.jsdelivr.net`, breaking the Convex client.
-
-**Solution:** Bundled the 151 kB Convex browser IIFE locally (`node extension/build-convex.js`). A one-line bridge script (`window.ConvexHttpClient = convex.ConvexHttpClient`) exposes the constructor without any module complexity.
 
 ---
 
