@@ -2,7 +2,7 @@
 
 import { RefreshCw, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useToast } from '@/components/ui/use-toast'
 
 interface DashboardNavbarProps {
@@ -13,6 +13,12 @@ export function DashboardNavbar({ showStats = false }: DashboardNavbarProps) {
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
   const [isSyncing, setIsSyncing] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Avoid hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSync = async () => {
     setIsSyncing(true)
@@ -68,12 +74,18 @@ export function DashboardNavbar({ showStats = false }: DashboardNavbarProps) {
       <button
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         className="p-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all duration-200"
-        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        title={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
+        suppressHydrationWarning
       >
-        {theme === 'dark' ? (
-          <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+        {mounted ? (
+          theme === 'dark' ? (
+            <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+          ) : (
+            <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+          )
         ) : (
-          <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" />
+          // Placeholder during SSR to prevent layout shift
+          <div className="w-3.5 h-3.5" />
         )}
       </button>
     </div>
