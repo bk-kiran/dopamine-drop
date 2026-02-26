@@ -198,6 +198,93 @@ export default function SchedulePage() {
     return new Date(d.setDate(diff))
   }
 
+  // Helper: Get assignment status color and label
+  function getAssignmentStatusColor(item: ScheduleItem) {
+    const now = new Date()
+    const dueDate = item.dueAt ? new Date(item.dueAt) : null
+
+    // Custom tasks - use their own status
+    if (item.isCustomTask) {
+      if (item.customStatus === 'completed') {
+        return {
+          border: 'border-green-500',
+          bg: 'bg-green-500/10',
+          text: 'text-green-500',
+          label: 'Completed',
+        }
+      }
+      // For pending custom tasks, check due date
+      if (dueDate) {
+        const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        if (daysUntilDue < 0) {
+          return {
+            border: 'border-red-500',
+            bg: 'bg-red-500/10',
+            text: 'text-red-500',
+            label: 'Overdue',
+          }
+        }
+        if (daysUntilDue >= 0 && daysUntilDue <= 3) {
+          return {
+            border: 'border-yellow-500',
+            bg: 'bg-yellow-500/10',
+            text: 'text-yellow-500',
+            label: `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`,
+          }
+        }
+      }
+      // Default for custom tasks
+      return {
+        border: item.category ? CATEGORY_BORDER[item.category].replace('border-l-4 border-', 'border-') : 'border-blue-500',
+        bg: 'bg-blue-500/10',
+        text: 'text-blue-500',
+        label: 'Upcoming',
+      }
+    }
+
+    // Canvas assignments - check status first
+    // Submitted/completed = green
+    if (item.status === 'submitted' || item.status === 'graded' || item.manuallyCompleted) {
+      return {
+        border: 'border-green-500',
+        bg: 'bg-green-500/10',
+        text: 'text-green-500',
+        label: 'Submitted',
+      }
+    }
+
+    // Missing or overdue = red
+    if (item.status === 'missing' || (dueDate && dueDate < now && item.status === 'pending')) {
+      return {
+        border: 'border-red-500',
+        bg: 'bg-red-500/10',
+        text: 'text-red-500',
+        label: 'Overdue',
+      }
+    }
+
+    // Due soon (within 3 days) = yellow
+    if (dueDate) {
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      if (daysUntilDue >= 0 && daysUntilDue <= 3) {
+        return {
+          border: 'border-yellow-500',
+          bg: 'bg-yellow-500/10',
+          text: 'text-yellow-500',
+          label: `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`,
+        }
+      }
+    }
+
+    // Due later = blue (default)
+    return {
+      border: 'border-blue-500',
+      bg: 'bg-blue-500/10',
+      text: 'text-blue-500',
+      label: 'Upcoming',
+    }
+  }
+
   // Week navigation
   const goToPrevWeek = () => {
     const newStart = new Date(currentWeekStart)
@@ -254,19 +341,34 @@ export default function SchedulePage() {
     return grouped
   }, [scheduleItems, weekDates])
 
-  // Upcoming schedule items (next 14 days)
+  // Upcoming schedule items (only future pending assignments, next 14 days)
   const upcomingAssignments = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const twoWeeksFromNow = new Date()
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const twoWeeksFromNow = new Date(today)
     twoWeeksFromNow.setDate(today.getDate() + 14)
     twoWeeksFromNow.setHours(23, 59, 59, 999)
 
     return scheduleItems
-      .filter(a => {
-        if (!a.dueAt) return false
-        const dueDate = new Date(a.dueAt)
-        return dueDate >= today && dueDate <= twoWeeksFromNow
+      .filter(item => {
+        // Must have a due date
+        if (!item.dueAt) return false
+
+        // For Canvas assignments - only show pending or missing
+        if (!item.isCustomTask) {
+          if (item.status !== 'pending' && item.status !== 'missing') return false
+        }
+
+        // For custom tasks - only show pending
+        if (item.isCustomTask) {
+          if (item.customStatus !== 'pending') return false
+        }
+
+        // Only show if due date is today or in the future
+        const dueDate = new Date(item.dueAt)
+        const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+
+        return dueDateOnly >= today && dueDateOnly <= new Date(twoWeeksFromNow)
       })
       .sort((a, b) => {
         if (!a.dueAt || !b.dueAt) return 0
@@ -274,15 +376,36 @@ export default function SchedulePage() {
       })
   }, [scheduleItems])
 
-  // Group upcoming by date
-  const upcomingByDate = useMemo(() => {
-    const grouped: Record<string, ScheduleItem[]> = {}
+  // Group upcoming by relative date (Today, Tomorrow, This Week, Later)
+  const upcomingByRelativeDate = useMemo(() => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const endOfWeek = new Date(today)
+    endOfWeek.setDate(endOfWeek.getDate() + 7)
+
+    const grouped = {
+      today: [] as ScheduleItem[],
+      tomorrow: [] as ScheduleItem[],
+      thisWeek: [] as ScheduleItem[],
+      later: [] as ScheduleItem[],
+    }
 
     upcomingAssignments.forEach(item => {
       if (!item.dueAt) return
-      const dateKey = new Date(item.dueAt).toISOString().split('T')[0]
-      if (!grouped[dateKey]) grouped[dateKey] = []
-      grouped[dateKey].push(item)
+      const dueDate = new Date(item.dueAt)
+      const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+
+      if (dueDateOnly.getTime() === today.getTime()) {
+        grouped.today.push(item)
+      } else if (dueDateOnly.getTime() === tomorrow.getTime()) {
+        grouped.tomorrow.push(item)
+      } else if (dueDateOnly > tomorrow && dueDateOnly <= endOfWeek) {
+        grouped.thisWeek.push(item)
+      } else if (dueDateOnly > endOfWeek) {
+        grouped.later.push(item)
+      }
     })
 
     return grouped
@@ -392,6 +515,26 @@ export default function SchedulePage() {
         </div>
       </div>
 
+      {/* Color Legend */}
+      <div className="flex gap-4 mb-6 px-5 py-3 rounded-xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+        <div className="flex items-center gap-2 text-sm">
+          <div className="w-4 h-4 rounded border-2 border-green-500 bg-green-500/10" />
+          <span className="text-[var(--text-muted)]">Submitted</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="w-4 h-4 rounded border-2 border-yellow-500 bg-yellow-500/10" />
+          <span className="text-[var(--text-muted)]">Due Soon</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="w-4 h-4 rounded border-2 border-blue-500 bg-blue-500/10" />
+          <span className="text-[var(--text-muted)]">Upcoming</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500/10" />
+          <span className="text-[var(--text-muted)]">Overdue</span>
+        </div>
+      </div>
+
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-3 mb-8">
         {weekDates.map((date, index) => {
@@ -419,23 +562,37 @@ export default function SchedulePage() {
 
               {/* Assignment/task cards */}
               <div className="space-y-2 flex-1">
-                {dayAssignments.map(item => (
-                  <motion.button
-                    key={item._id}
-                    whileHover={{ scale: 1.02 }}
-                    onClick={() => openModal(item)}
-                    className={`w-full text-left p-3 rounded-lg bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/30 transition-all cursor-pointer ${getBorderColor(item)}`}
-                  >
-                    <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {item.isCustomTask
-                        ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
-                        : item.courseCode}
-                    </p>
-                  </motion.button>
-                ))}
+                {dayAssignments.length === 0 ? (
+                  <div className="text-center py-8 text-[var(--text-muted)] text-xs opacity-50">
+                    No assignments
+                  </div>
+                ) : (
+                  dayAssignments.map(item => {
+                    const colors = getAssignmentStatusColor(item)
+                    return (
+                      <motion.button
+                        key={item._id}
+                        whileHover={{ scale: 1.02 }}
+                        onClick={() => openModal(item)}
+                        className={`w-full text-left p-3 rounded-lg backdrop-blur-md border-l-4 ${colors.border} ${colors.bg} hover:bg-opacity-20 transition-all cursor-pointer`}
+                      >
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                          {item.title}
+                        </h3>
+                        <p className="text-xs text-[var(--text-muted)] mb-1">
+                          {item.isCustomTask
+                            ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                            : item.courseCode}
+                          {' • '}
+                          {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
+                        </p>
+                        <div className={`text-xs font-medium ${colors.text}`}>
+                          {colors.label}
+                        </div>
+                      </motion.button>
+                    )
+                  })
+                )}
               </div>
             </div>
           )
@@ -446,34 +603,25 @@ export default function SchedulePage() {
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Upcoming</h2>
         <div className="space-y-6">
-          {Object.keys(upcomingByDate).length === 0 ? (
+          {upcomingAssignments.length === 0 ? (
             <div className="text-center py-16 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
               <Calendar className="w-16 h-16 mx-auto mb-4 text-[var(--text-muted)] opacity-30" />
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">No upcoming assignments</h3>
+              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">All caught up! 🎉</h3>
               <p className="text-[var(--text-muted)]">
-                You're all caught up for the next 2 weeks!
+                No upcoming assignments.
               </p>
             </div>
           ) : (
-            Object.entries(upcomingByDate).map(([dateKey, dayAssignments]) => {
-              const date = new Date(dateKey)
-              const dateHeader = date.toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-              })
-
-              return (
-                <div key={dateKey}>
-                  {/* Date header */}
+            <>
+              {/* Due Today */}
+              {upcomingByRelativeDate.today.length > 0 && (
+                <div>
                   <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
-                    {dateHeader}
+                    Due Today
                   </h3>
-
-                  {/* Schedule item rows */}
                   <div className="space-y-2">
-                    {dayAssignments.map(item => {
-                      const daysUntil = item.dueAt ? formatDaysUntil(item.dueAt) : null
+                    {upcomingByRelativeDate.today.map(item => {
+                      const colors = getAssignmentStatusColor(item)
                       const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
 
                       return (
@@ -481,7 +629,7 @@ export default function SchedulePage() {
                           key={item._id}
                           whileHover={{ scale: 1.01 }}
                           onClick={() => openModal(item)}
-                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-purple-400/20 transition-all cursor-pointer text-left ${getBorderColor(item)}`}
+                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl backdrop-blur-md border-l-4 ${colors.border} ${colors.bg} hover:bg-opacity-20 transition-all cursor-pointer text-left`}
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
                             {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
@@ -493,32 +641,162 @@ export default function SchedulePage() {
                                 {item.isCustomTask
                                   ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
                                   : item.courseCode}
+                                {' • '}
+                                {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-6">
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-purple-400">
-                                {item.isCustomTask ? item.pointsValue : item.pointsPossible} pts
-                              </p>
-                            </div>
-
-                            {daysUntil && (
-                              <div className="text-right min-w-[120px]">
-                                <p className={`text-xs font-bold uppercase tracking-wide ${daysUntil.color}`}>
-                                  {daysUntil.text}
-                                </p>
-                              </div>
-                            )}
+                          <div className="text-right">
+                            <p className={`text-xs font-bold ${colors.text}`}>
+                              {colors.label}
+                            </p>
                           </div>
                         </motion.button>
                       )
                     })}
                   </div>
                 </div>
-              )
-            })
+              )}
+
+              {/* Due Tomorrow */}
+              {upcomingByRelativeDate.tomorrow.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                    Due Tomorrow
+                  </h3>
+                  <div className="space-y-2">
+                    {upcomingByRelativeDate.tomorrow.map(item => {
+                      const colors = getAssignmentStatusColor(item)
+                      const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
+
+                      return (
+                        <motion.button
+                          key={item._id}
+                          whileHover={{ scale: 1.01 }}
+                          onClick={() => openModal(item)}
+                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl backdrop-blur-md border-l-4 ${colors.border} ${colors.bg} hover:bg-opacity-20 transition-all cursor-pointer text-left`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
+                            {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                                {item.title}
+                              </h4>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {item.isCustomTask
+                                  ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                                  : item.courseCode}
+                                {' • '}
+                                {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className={`text-xs font-bold ${colors.text}`}>
+                              {colors.label}
+                            </p>
+                          </div>
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* This Week */}
+              {upcomingByRelativeDate.thisWeek.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                    This Week
+                  </h3>
+                  <div className="space-y-2">
+                    {upcomingByRelativeDate.thisWeek.map(item => {
+                      const colors = getAssignmentStatusColor(item)
+                      const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
+
+                      return (
+                        <motion.button
+                          key={item._id}
+                          whileHover={{ scale: 1.01 }}
+                          onClick={() => openModal(item)}
+                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl backdrop-blur-md border-l-4 ${colors.border} ${colors.bg} hover:bg-opacity-20 transition-all cursor-pointer text-left`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
+                            {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                                {item.title}
+                              </h4>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {item.isCustomTask
+                                  ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                                  : item.courseCode}
+                                {' • '}
+                                {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className={`text-xs font-bold ${colors.text}`}>
+                              {colors.label}
+                            </p>
+                          </div>
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Later */}
+              {upcomingByRelativeDate.later.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                    Later
+                  </h3>
+                  <div className="space-y-2">
+                    {upcomingByRelativeDate.later.map(item => {
+                      const colors = getAssignmentStatusColor(item)
+                      const CategoryIcon = item.isCustomTask && item.category ? CATEGORY_ICON[item.category] : null
+
+                      return (
+                        <motion.button
+                          key={item._id}
+                          whileHover={{ scale: 1.01 }}
+                          onClick={() => openModal(item)}
+                          className={`w-full flex items-center justify-between px-5 py-4 rounded-xl backdrop-blur-md border-l-4 ${colors.border} ${colors.bg} hover:bg-opacity-20 transition-all cursor-pointer text-left`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
+                            {CategoryIcon && <CategoryIcon className="w-4 h-4 text-purple-400 flex-shrink-0" />}
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] truncate mb-1">
+                                {item.title}
+                              </h4>
+                              <p className="text-xs text-[var(--text-muted)]">
+                                {item.isCustomTask
+                                  ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
+                                  : item.courseCode}
+                                {' • '}
+                                {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className={`text-xs font-bold ${colors.text}`}>
+                              {colors.label}
+                            </p>
+                          </div>
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
