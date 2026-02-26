@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +40,7 @@ interface UrgentAssignment {
   status: 'pending' | 'submitted' | 'missing'
   courseName: string
   courseCode: string
+  canvasCourseId: string
   urgentOrder: number
 }
 
@@ -124,18 +125,39 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
     supabaseId: supabaseUserId,
   })
 
+  const userData = useQuery(api.users.getUserBySupabaseId, {
+    supabaseId: supabaseUserId,
+  })
+
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
 
   // Local state for optimistic reordering
   const [localAssignments, setLocalAssignments] = useState<UrgentAssignment[]>([])
 
+  // Filter out hidden courses
+  const hiddenCourses = userData?.hiddenCourses || []
+  const visibleUrgentAssignments = urgentAssignments?.filter(
+    (a) => !hiddenCourses.includes(a.canvasCourseId)
+  )
+
   // Sync with Convex data
-  const assignments = urgentAssignments || localAssignments
+  const assignments = visibleUrgentAssignments || localAssignments
 
   // Update local state when Convex data changes
-  if (urgentAssignments && urgentAssignments.length !== localAssignments.length) {
-    setLocalAssignments(urgentAssignments as UrgentAssignment[])
+  if (visibleUrgentAssignments && visibleUrgentAssignments.length !== localAssignments.length) {
+    setLocalAssignments(visibleUrgentAssignments as UrgentAssignment[])
   }
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[Urgent Panel] Updated:', visibleUrgentAssignments?.length, 'tasks')
+    console.log('[Urgent Panel] Task statuses:', visibleUrgentAssignments?.map(t => ({
+      title: t.title,
+      status: t.status,
+      isUrgent: true,
+      canvasCourseId: t.canvasCourseId,
+    })))
+  }, [visibleUrgentAssignments])
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -170,7 +192,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
     } catch (error) {
       console.error('Error reordering urgent assignments:', error)
       // Revert on error
-      setLocalAssignments(urgentAssignments as UrgentAssignment[])
+      setLocalAssignments(visibleUrgentAssignments as UrgentAssignment[])
     }
   }
 

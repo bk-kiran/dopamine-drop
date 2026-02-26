@@ -7,12 +7,16 @@ import { validateInput, rewardRevealSchema } from '@/lib/validation'
 import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
+  console.log('[Rewards Reveal] Route handler called')
+
   try {
     const supabase = await createClient()
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
+
+    console.log('[Rewards Reveal] Auth check:', { hasUser: !!user, authError: !!authError })
 
     if (authError || !user) {
       logSecurityEvent('unauthorized', { route: '/api/rewards/reveal' })
@@ -38,20 +42,29 @@ export async function POST(request: NextRequest) {
     }
     const { rewardId } = validation.data
 
-    const convex = getConvexClient()
-    const convexUserId = await getConvexUserId(user.id)
-
     try {
+      const convex = getConvexClient()
+      const convexUserId = await getConvexUserId(user.id)
+
+      console.log('[Rewards Reveal] Debug:', {
+        convexUserId,
+        rewardId,
+        rewardIdType: typeof rewardId,
+      })
+
       await convex.mutation(api.rewards.revealReward, {
         userId: convexUserId,
         rewardId,
       })
+
+      return NextResponse.json({ success: true })
     } catch (error) {
-      logInternalError('Rewards Reveal', error, { userId: user.id })
+      logInternalError('Rewards Reveal', error, {
+        userId: user.id,
+        rewardId
+      })
       return NextResponse.json({ error: 'Failed to reveal reward' }, { status: 500 })
     }
-
-    return NextResponse.json({ success: true })
   } catch (error) {
     logInternalError('Rewards Reveal', error)
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })

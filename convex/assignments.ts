@@ -535,12 +535,17 @@ export const getUrgentAssignments = query({
     if (!user) return []
 
     // Get all urgent assignments
-    const urgentAssignments = await ctx.db
+    const allUrgentAssignments = await ctx.db
       .query('assignments')
       .withIndex('by_user_and_urgent', (q) =>
         q.eq('userId', user._id).eq('isUrgent', true)
       )
       .collect()
+
+    // Filter to only pending or missing (exclude completed/submitted)
+    const urgentAssignments = allUrgentAssignments.filter(
+      (a) => a.status === 'pending' || a.status === 'missing'
+    )
 
     // Get course info for each assignment
     const courseIds = [...new Set(urgentAssignments.map((a) => a.courseId))]

@@ -66,7 +66,7 @@ export default function LeaderboardPage() {
       setActiveLeaderboardId(result.leaderboardId as string)
       setNameInput('')
       setView('list')
-      toast({ title: 'Leaderboard created!', className: 'bg-green-50 border-green-200', duration: 3000 })
+      toast({ title: 'Leaderboard created!', className: 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100', duration: 3000 })
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally {
@@ -83,7 +83,7 @@ export default function LeaderboardPage() {
         toast({ title: "You're already in this leaderboard", duration: 3000 })
       } else {
         setActiveLeaderboardId(result.leaderboardId as string)
-        toast({ title: 'Joined!', className: 'bg-green-50 border-green-200', duration: 3000 })
+        toast({ title: 'Joined!', className: 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100', duration: 3000 })
       }
       setCodeInput('')
       setView('list')
@@ -111,7 +111,7 @@ export default function LeaderboardPage() {
     navigator.clipboard.writeText(link)
     setCopiedCode(inviteCode)
     setTimeout(() => setCopiedCode(null), 2000)
-    toast({ title: 'Invite link copied!', className: 'bg-purple-50 border-purple-200', duration: 2500 })
+    toast({ title: 'Invite link copied!', className: 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100', duration: 2500 })
   }
 
   const hasLeaderboards = myLeaderboards && myLeaderboards.length > 0

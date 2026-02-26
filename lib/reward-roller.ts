@@ -58,6 +58,13 @@ export async function rollReward({
     rewardId: randomReward._id,
   })
 
-  // Return full reward object
-  return userReward?.reward as Reward
+  // Transform Convex document to frontend format
+  if (!userReward?.reward) return null
+
+  return {
+    id: userReward.reward._id,
+    name: userReward.reward.name,
+    description: userReward.reward.description,
+    rarity: userReward.reward.rarity,
+  }
 }

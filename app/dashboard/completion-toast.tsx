@@ -51,7 +51,7 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
         title: `+${assignment.pointsAwarded} pts`,
         description: `${assignment.title} — ${reasonText}`,
         duration: 4000,
-        className: 'bg-green-50 border-green-200 text-green-900',
+        className: 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
       })
     })
   }, [completedAssignments, toast])
@@ -85,9 +85,15 @@ export function CompletionToast({ completedAssignments, newReward }: CompletionT
         console.log('[Claim Reward] Success! Closing modal.')
         setShowRewardModal(false)
       } else {
-        const error = await res.json()
-        console.error('[Claim Reward] Failed:', error)
-        alert(`Failed to claim reward: ${error.error || 'Unknown error'}`)
+        let errorMessage = 'Unknown error'
+        try {
+          const error = await res.json()
+          errorMessage = error.error || errorMessage
+          console.error('[Claim Reward] Failed:', error)
+        } catch (parseError) {
+          console.error('[Claim Reward] Failed to parse error response:', parseError)
+        }
+        alert(`Failed to claim reward: ${errorMessage}`)
       }
     } catch (error) {
       console.error('[Claim Reward] Network error:', error)

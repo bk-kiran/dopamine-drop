@@ -48,6 +48,8 @@ export const revealReward = mutation({
     rewardId: v.id('rewards'),
   },
   handler: async (ctx, args) => {
+    console.log('[revealReward] Args:', { userId: args.userId, rewardId: args.rewardId })
+
     const userReward = await ctx.db
       .query('userRewards')
       .withIndex('by_user_and_reward', (q) =>
@@ -55,7 +57,11 @@ export const revealReward = mutation({
       )
       .first()
 
-    if (!userReward) throw new Error('Reward not found')
+    console.log('[revealReward] Found userReward:', userReward)
+
+    if (!userReward) {
+      throw new Error(`Reward not found for userId=${args.userId} rewardId=${args.rewardId}`)
+    }
 
     await ctx.db.patch(userReward._id, { isRevealed: true })
     return true

@@ -153,7 +153,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
       toast({
         title: `+${result.pointsAwarded} pts — ${assignmentTitle}`,
         description: result.reason.replace('_', ' '),
-        className: 'bg-green-50 border-green-200',
+        className: 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
         duration: 4000,
       })
 
@@ -162,7 +162,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
         toast({
           title: `Shield used! Your ${result.protectedStreak}-day streak is protected`,
           description: 'A streak shield absorbed the missed day.',
-          className: 'bg-purple-50 border-purple-200',
+          className: 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100',
           duration: 5000,
         })
       }
@@ -209,7 +209,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
       toast({
         title: `Assignment unticked — ${result.pointsRemoved} pts removed`,
         description: assignmentToUntick.title,
-        className: 'bg-orange-50 border-orange-200',
+        className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
         duration: 4000,
       })
     } catch (error: any) {
@@ -236,13 +236,13 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
       const nowUrgent = result.isUrgent
       toast({
         description: nowUrgent ? (
-          <span className="flex items-center gap-1.5">
-            <Flame className="w-3 h-3 text-orange-500 fill-orange-500" />
+          <span className="flex items-center gap-1.5 text-foreground">
+            <Flame className="w-3 h-3 text-orange-500 fill-orange-500 dark:text-orange-400 dark:fill-orange-400" />
             Marked as urgent
           </span>
         ) : (
-          <span className="flex items-center gap-1.5">
-            <Check className="w-3 h-3 text-gray-500" />
+          <span className="flex items-center gap-1.5 text-foreground">
+            <Check className="w-3 h-3 text-gray-500 dark:text-gray-400" />
             No longer urgent
           </span>
         ),
