@@ -99,6 +99,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string } | null>(null)
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
+  const [showAllCompleted, setShowAllCompleted] = useState(false)
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
@@ -107,7 +108,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     supabaseId: supabaseUserId,
   })
 
-  // Get assignments from last 7 days - memoize to prevent infinite re-renders
+  // Get assignments - conditionally apply 7-day filter based on toggle
   const sevenDaysAgoISO = useMemo(() => {
     const date = new Date()
     date.setDate(date.getDate() - 7)
@@ -116,7 +117,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   const assignments = useQuery(api.assignments.getAssignmentsBySupabaseId, {
     supabaseId: supabaseUserId,
-    includeSubmittedSince: sevenDaysAgoISO,
+    includeSubmittedSince: showAllCompleted ? undefined : sevenDaysAgoISO,
   })
 
   // Custom tasks query
@@ -657,6 +658,31 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
               </span>
             )}
           </div>
+
+          {/* Show All Completed toggle */}
+          <button
+            onClick={() => {
+              const newValue = !showAllCompleted
+              setShowAllCompleted(newValue)
+              toast({
+                description: newValue
+                  ? 'Showing all completed assignments'
+                  : 'Showing recent assignments (7 days)',
+                duration: 2000,
+              })
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 ${
+              showAllCompleted
+                ? 'bg-green-500/20 border-green-500/30 text-green-400'
+                : 'bg-[var(--glass-bg)] border-[var(--glass-border)] text-[var(--text-muted)]'
+            }`}
+            title={showAllCompleted ? 'Showing all completed' : 'Showing recent only (7 days)'}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">
+              {showAllCompleted ? 'ALL' : '7D'}
+            </span>
+          </button>
 
           {/* Add Task button */}
           <button

@@ -26,12 +26,19 @@ export const getAllAssignments = query({
       .withIndex('by_user', (q) => q.eq('userId', args.userId))
       .collect()
 
-    // Filter: pending OR submitted after date
+    // Filter: pending OR submitted (with optional date filter)
     return allAssignments.filter((a) => {
+      // Always include pending assignments
       if (a.status === 'pending') return true
-      if (a.submittedAt && args.includeSubmittedSince) {
+
+      // If no date filter provided, include all submitted assignments
+      if (!args.includeSubmittedSince) return true
+
+      // If date filter provided, only include submitted assignments after that date
+      if (a.submittedAt) {
         return a.submittedAt >= args.includeSubmittedSince
       }
+
       return false
     })
   },
@@ -76,10 +83,17 @@ export const getAssignmentsWithCourseInfo = query({
         }
       })
       .filter((a) => {
+        // Always include pending assignments
         if (a.status === 'pending') return true
-        if (a.submittedAt && args.includeSubmittedSince) {
+
+        // If no date filter provided, include all submitted assignments
+        if (!args.includeSubmittedSince) return true
+
+        // If date filter provided, only include submitted assignments after that date
+        if (a.submittedAt) {
           return a.submittedAt >= args.includeSubmittedSince
         }
+
         return false
       })
 
@@ -135,10 +149,17 @@ export const getAssignmentsBySupabaseId = query({
         }
       })
       .filter((a) => {
+        // Always include pending assignments
         if (a.status === 'pending') return true
-        if (a.submittedAt && args.includeSubmittedSince) {
+
+        // If no date filter provided, include all submitted assignments
+        if (!args.includeSubmittedSince) return true
+
+        // If date filter provided, only include submitted assignments after that date
+        if (a.submittedAt) {
           return a.submittedAt >= args.includeSubmittedSince
         }
+
         return false
       })
 
