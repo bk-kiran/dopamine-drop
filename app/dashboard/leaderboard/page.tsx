@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, Plus, Hash, Copy, Check, Flame, Zap, Users, LogOut, X } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { DashboardNavbar } from '@/components/dashboard-navbar'
 
 type View = 'list' | 'create' | 'join'
 
@@ -125,7 +126,8 @@ export default function LeaderboardPage() {
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-1">Leaderboards</h1>
           <p className="text-sm text-[var(--text-muted)]">Compete with friends — invite only</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <DashboardNavbar />
           <button
             onClick={() => setView(view === 'join' ? 'list' : 'join')}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 ${

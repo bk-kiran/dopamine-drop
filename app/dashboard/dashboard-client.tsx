@@ -22,9 +22,9 @@ import { AddTaskModal } from '@/components/add-task-modal'
 import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
 import { SortableSection } from '@/components/sortable-section'
 import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
-import { Flame, Zap, RefreshCw, Sun, Moon, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
+import { DashboardNavbar } from '@/components/dashboard-navbar'
+import { Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useTheme } from 'next-themes'
 import { useToast } from '@/components/ui/use-toast'
 import {
   AlertDialog,
@@ -91,7 +91,6 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
-  const [isSyncing, setIsSyncing] = useState(false)
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
   const [editTask, setEditTask] = useState<any>(null)
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
@@ -100,7 +99,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
-  const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
   // Consolidated dashboard query (reduces 3 queries to 1)
@@ -344,27 +342,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     }
   }
 
-  // Handle manual sync
-  const handleSync = async () => {
-    setIsSyncing(true)
-    localStorage.removeItem('lastSyncTime')
-
-    try {
-      const response = await fetch('/api/canvas/sync', {
-        method: 'POST',
-      })
-      const data = await response.json()
-
-      if (response.ok) {
-        // Success - data will be automatically updated via Convex reactivity
-        console.log(`Synced ${data.synced} assignments from ${data.courses} courses`)
-      }
-    } catch (error) {
-      console.error('Sync error:', error)
-    } finally {
-      setIsSyncing(false)
-    }
-  }
 
   // Handle drag end for section reordering
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -694,28 +671,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             <span className="text-xs font-semibold">ADD TASK</span>
           </button>
 
-          {/* Sync button */}
-          <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="p-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all duration-200 disabled:opacity-50"
-            title="Sync with Canvas"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[var(--text-primary)] ${isSyncing ? 'animate-spin' : ''}`} />
-          </button>
-
-          {/* Dark mode toggle */}
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="p-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all duration-200"
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-3.5 h-3.5 text-[var(--text-primary)]" />
-            ) : (
-              <Moon className="w-3.5 h-3.5 text-[var(--text-primary)]" />
-            )}
-          </button>
+          {/* Navbar (sync + theme toggle) */}
+          <DashboardNavbar />
         </div>
       </div>
 

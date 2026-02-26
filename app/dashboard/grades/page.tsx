@@ -17,6 +17,7 @@ import {
   BookOpen,
   EyeOff,
 } from 'lucide-react'
+import { DashboardNavbar } from '@/components/dashboard-navbar'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
 
@@ -556,16 +557,19 @@ export default function GradesPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-[var(--text-primary)] flex items-center gap-2">
-          <GraduationCap className="w-6 h-6 text-purple-400" />
-          Grades
-        </h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {hasAnyGrades
-            ? `Tracking ${gradedCourses.length} of ${visibleCourses.length} visible course${visibleCourses.length !== 1 ? 's' : ''}`
-            : 'Sync Canvas to load your grades'}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-[var(--text-primary)] flex items-center gap-2">
+            <GraduationCap className="w-6 h-6 text-purple-400" />
+            Grades
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {hasAnyGrades
+              ? `Tracking ${gradedCourses.length} of ${visibleCourses.length} visible course${visibleCourses.length !== 1 ? 's' : ''}`
+              : 'Sync Canvas to load your grades'}
+          </p>
+        </div>
+        <DashboardNavbar />
       </div>
 
       {/* Hidden courses notice */}

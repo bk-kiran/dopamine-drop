@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Calendar, BookOpen, Users, Briefcase, Heart 
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
+import { DashboardNavbar } from '@/components/dashboard-navbar'
 
 type Category = 'academic' | 'club' | 'work' | 'personal'
 
@@ -467,22 +468,25 @@ export default function SchedulePage() {
   return (
     <div className="container max-w-7xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Schedule</h1>
-        <p className="text-[var(--text-muted)]">Your weekly assignment calendar</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Schedule</h1>
+          <p className="text-[var(--text-muted)]">Your weekly assignment calendar</p>
 
-        {/* Hidden courses info note */}
-        {hiddenCourses.length > 0 && (
-          <div className="mt-3 text-sm text-[var(--text-muted)]">
-            {hiddenCourses.length} {hiddenCourses.length === 1 ? 'course' : 'courses'} hidden —{' '}
-            <a
-              href="/dashboard/courses"
-              className="text-purple-400 hover:text-purple-300 underline transition-colors"
-            >
-              manage in Courses tab
-            </a>
-          </div>
-        )}
+          {/* Hidden courses info note */}
+          {hiddenCourses.length > 0 && (
+            <div className="mt-3 text-sm text-[var(--text-muted)]">
+              {hiddenCourses.length} {hiddenCourses.length === 1 ? 'course' : 'courses'} hidden —{' '}
+              <a
+                href="/dashboard/courses"
+                className="text-purple-400 hover:text-purple-300 underline transition-colors"
+              >
+                manage in Courses tab
+              </a>
+            </div>
+          )}
+        </div>
+        <DashboardNavbar />
       </div>
 
       {/* Week Navigator */}

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, BookOpen, CheckCircle2, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
+import { DashboardNavbar } from '@/components/dashboard-navbar'
 
 interface Course {
   _id: string
@@ -48,18 +49,12 @@ export default function CoursesPage() {
     supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
   )
 
-  // Get assignments from last 7 days
-  const sevenDaysAgoISO = useMemo(() => {
-    const date = new Date()
-    date.setDate(date.getDate() - 7)
-    return date.toISOString()
-  }, [])
-
+  // Get ALL assignments (no date filtering - courses page shows all-time stats)
   const assignments = useQuery(
     api.assignments.getAssignmentsBySupabaseId,
     supabaseUserId ? {
       supabaseId: supabaseUserId,
-      includeSubmittedSince: sevenDaysAgoISO,
+      includeSubmittedSince: undefined, // No date filter - show all assignments
     } : 'skip'
   )
 
@@ -150,9 +145,15 @@ export default function CoursesPage() {
   return (
     <div className="container max-w-7xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Courses</h1>
-        <p className="text-[var(--text-muted)]">Manage your enrolled courses and track progress</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Courses</h1>
+          <p className="text-[var(--text-muted)]">
+            Manage your enrolled courses and track progress
+            <span className="ml-2 text-xs opacity-75">• Showing all-time stats for {totalCourses} visible {totalCourses === 1 ? 'course' : 'courses'}</span>
+          </p>
+        </div>
+        <DashboardNavbar />
       </div>
 
       {/* Summary Stats */}
