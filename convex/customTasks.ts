@@ -383,3 +383,26 @@ export const toggleUrgentCustomTask = mutation({
     return { isUrgent: newUrgent }
   },
 })
+
+// Reorder urgent custom tasks (for drag-drop)
+export const reorderUrgentCustomTasks = mutation({
+  args: {
+    supabaseId: v.string(),
+    customTaskIds: v.array(v.id('customTasks')),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    if (!user) throw new Error('User not found')
+
+    // Update urgentOrder for each custom task based on position in array
+    await Promise.all(
+      args.customTaskIds.map((taskId, index) =>
+        ctx.db.patch(taskId, {
+          urgentOrder: index,
+        })
+      )
+    )
+
+    return { success: true }
+  },
+})

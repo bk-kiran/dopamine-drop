@@ -24,38 +24,66 @@ const DIFFICULTY_CONFIG = {
   },
 }
 
+// Helper: Get today's date in local timezone as YYYY-MM-DD
+function getTodayLocalDate(): string {
+  const now = new Date()
+  return now.toLocaleDateString('en-CA') // YYYY-MM-DD format
+}
+
+// Helper: Calculate time until local midnight
+function getTimeUntilMidnight(): string {
+  const now = new Date()
+  const midnight = new Date(now)
+  midnight.setHours(24, 0, 0, 0)
+
+  const diff = midnight.getTime() - now.getTime()
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+  return `${hours}h ${minutes}m`
+}
+
 interface DailyChallengesProps {
   supabaseUserId: string
 }
 
 export function DailyChallenges({ supabaseUserId }: DailyChallengesProps) {
-  const today = new Date().toISOString().split('T')[0]
-  const [timeLeft, setTimeLeft] = useState('')
+  const [currentDate, setCurrentDate] = useState(getTodayLocalDate())
+  const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight())
 
   const generateDailyChallenges = useMutation(api.challenges.generateDailyChallenges)
 
   const dailyChallenges = useQuery(api.challenges.getDailyChallenges, {
     supabaseId: supabaseUserId,
+    dateString: currentDate,
   })
 
-  // Generate challenges on mount (idempotent)
+  // Generate challenges on mount and when date changes
   useEffect(() => {
-    generateDailyChallenges({ supabaseId: supabaseUserId }).catch(console.error)
-  }, [supabaseUserId])
+    generateDailyChallenges({
+      supabaseId: supabaseUserId,
+      dateString: currentDate,
+    }).catch(console.error)
+  }, [supabaseUserId, currentDate])
 
-  // Countdown to midnight UTC
+  // Check for date change every minute (automatic reset at local midnight)
   useEffect(() => {
-    const update = () => {
-      const now = new Date()
-      const midnight = new Date(now)
-      midnight.setUTCHours(24, 0, 0, 0)
-      const diff = midnight.getTime() - now.getTime()
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      setTimeLeft(`${h}h ${m}m`)
-    }
-    update()
-    const interval = setInterval(update, 60000)
+    const interval = setInterval(() => {
+      const newDate = getTodayLocalDate()
+      if (newDate !== currentDate) {
+        setCurrentDate(newDate)
+      }
+    }, 60000) // Check every minute
+
+    return () => clearInterval(interval)
+  }, [currentDate])
+
+  // Update countdown timer every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(getTimeUntilMidnight())
+    }, 1000)
+
     return () => clearInterval(interval)
   }, [])
 

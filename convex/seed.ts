@@ -54,3 +54,28 @@ export const seedRewards = mutation({
     }
   },
 })
+
+// Reseed the challenge pool with expanded 25 challenges
+// Run this to update existing pool: npx convex run seed:reseedChallengePool
+export const reseedChallengePool = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // Delete all existing challenges
+    const existing = await ctx.db.query('challengePool').collect()
+    for (const challenge of existing) {
+      await ctx.db.delete(challenge._id)
+    }
+
+    // Note: This will also clear userDailyChallenges references
+    // but they'll regenerate on next query
+    console.log(`Deleted ${existing.length} existing challenges`)
+
+    // Seed the expanded pool - this will be picked up by
+    // seedChallengePool mutation in challenges.ts
+    return {
+      success: true,
+      message: 'Challenge pool cleared. Run seedChallengePool from challenges.ts to reseed.',
+      deletedCount: existing.length,
+    }
+  },
+})

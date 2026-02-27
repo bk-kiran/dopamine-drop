@@ -1,14 +1,29 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useQuery } from 'convex/react'
+import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
-import { Circle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Circle, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LevelCard } from '@/components/level-card'
 import { DailyChallenges } from '@/components/daily-challenges'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface UrgentAssignment {
   _id: string
@@ -48,9 +63,76 @@ function formatDueDate(dateString: string | null): string {
   }
 }
 
+interface SortableUrgentItemProps {
+  item: {
+    _id: string
+    title: string
+    dueAt: string | null
+    isCustomTask: boolean
+  }
+}
+
+function SortableUrgentItem({ item }: SortableUrgentItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item._id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const dueText = formatDueDate(item.dueAt)
+  const isOverdue = dueText === 'OVERDUE'
+  const isUrgentTime = dueText.includes('HOUR') || dueText === 'DUE TOMORROW'
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/20 hover:scale-[1.01] transition-all duration-200 group"
+    >
+      <div className="flex items-start gap-2">
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-400 group-hover:text-purple-300 transition-colors mt-0.5"
+          title="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1 truncate">
+            {item.title}
+          </h4>
+          <p className={`text-xs font-bold uppercase tracking-wide ${
+            isOverdue ? 'text-red-400' : isUrgentTime ? 'text-orange-400' : 'text-yellow-400'
+          }`}>
+            {dueText}
+          </p>
+        </div>
+        {item.isCustomTask && (
+          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
+            CUSTOM
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function RightPanel() {
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [localUrgentItems, setLocalUrgentItems] = useState<any[]>([])
 
   // Get Supabase user ID
   useEffect(() => {
@@ -99,6 +181,10 @@ export function RightPanel() {
   const userData = dashboardData?.user
   const pointsData = dashboardData?.visiblePoints
 
+  // Mutations for reordering
+  const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
+  const reorderUrgentCustomTasks = useMutation(api.customTasks.reorderUrgentCustomTasks)
+
   // Merge and sort all urgent items by urgentOrder
   const mergedUrgentItems = [
     ...(urgentAssignments || []).map((a: any) => ({
@@ -118,6 +204,62 @@ export function RightPanel() {
   ].sort((a, b) => (a.urgentOrder ?? 0) - (b.urgentOrder ?? 0))
 
   const urgentCount = mergedUrgentItems.length
+
+  // Update local state when data changes
+  useEffect(() => {
+    if (mergedUrgentItems.length > 0) {
+      setLocalUrgentItems(mergedUrgentItems)
+    }
+  }, [JSON.stringify(mergedUrgentItems)])
+
+  // Use local state for display (for optimistic updates)
+  const displayItems = localUrgentItems.length > 0 ? localUrgentItems : mergedUrgentItems
+
+  // Drag and drop sensors
+  const sensors = useSensors(useSensor(PointerSensor))
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id || !supabaseUserId) return
+
+    const oldIndex = displayItems.findIndex((item) => item._id === active.id)
+    const newIndex = displayItems.findIndex((item) => item._id === over.id)
+
+    if (oldIndex === -1 || newIndex === -1) return
+
+    // Optimistic update
+    const reordered = arrayMove(displayItems, oldIndex, newIndex)
+    setLocalUrgentItems(reordered)
+
+    // Persist to Convex - separate assignments and custom tasks
+    try {
+      const assignmentIds = reordered
+        .filter((item) => !item.isCustomTask)
+        .map((item) => item._id)
+      const customTaskIds = reordered
+        .filter((item) => item.isCustomTask)
+        .map((item) => item._id)
+
+      if (assignmentIds.length > 0) {
+        await reorderUrgentAssignments({
+          supabaseId: supabaseUserId,
+          assignmentIds: assignmentIds as any,
+        })
+      }
+
+      if (customTaskIds.length > 0) {
+        await reorderUrgentCustomTasks({
+          supabaseId: supabaseUserId,
+          customTaskIds: customTaskIds as any,
+        })
+      }
+    } catch (error) {
+      console.error('Error reordering urgent items:', error)
+      // Revert on error
+      setLocalUrgentItems(mergedUrgentItems)
+    }
+  }
 
   // Get user initials
   const getInitials = () => {
@@ -175,46 +317,29 @@ export function RightPanel() {
               </div>
 
           {/* Urgent items list (Canvas + custom tasks merged) */}
-          <div className="space-y-2">
-            {mergedUrgentItems.length > 0 ? (
-              mergedUrgentItems.map((item) => {
-                const dueText = formatDueDate(item.dueAt)
-                const isOverdue = dueText === 'OVERDUE'
-                const isUrgentTime = dueText.includes('HOUR') || dueText === 'DUE TOMORROW'
-
-                return (
-                  <motion.div
-                    key={item._id}
-                    layout
-                    className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/20 transition-all duration-200"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1 truncate">
-                          {item.title}
-                        </h4>
-                        <p className={`text-xs font-bold uppercase tracking-wide ${
-                          isOverdue ? 'text-red-400' : isUrgentTime ? 'text-orange-400' : 'text-yellow-400'
-                        }`}>
-                          {dueText}
-                        </p>
-                      </div>
-                      {item.isCustomTask && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
-                          CUSTOM
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                )
-              })
-            ) : (
-              <div className="text-center py-8">
-                <Circle className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
-                <p className="text-sm text-[var(--text-muted)]">No urgent tasks</p>
-              </div>
-            )}
-          </div>
+          {displayItems.length > 0 ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={displayItems.map((item) => item._id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {displayItems.map((item) => (
+                    <SortableUrgentItem key={item._id} item={item} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="text-center py-8">
+              <Circle className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
+              <p className="text-sm text-[var(--text-muted)]">No urgent tasks</p>
+            </div>
+          )}
         </div>
 
         {/* Daily Challenges */}

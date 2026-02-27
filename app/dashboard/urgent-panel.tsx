@@ -77,13 +77,14 @@ function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 p-4 rounded-xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 transition-all duration-200"
+      className="flex items-center gap-3 p-4 rounded-xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] shadow-[var(--glass-shadow)] hover:border-purple-400/30 hover:shadow-lg hover:scale-[1.01] transition-all duration-200 group"
     >
-      {/* Drag handle */}
+      {/* Drag handle - always visible with prominent styling */}
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+        className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-400 group-hover:text-purple-300 transition-colors"
+        title="Drag to reorder"
       >
         <GripVertical className="h-5 w-5" />
       </div>
@@ -254,6 +255,12 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
                     items={assignments.map((a) => a._id)}
                     strategy={verticalListSortingStrategy}
                   >
+                    {/* Drag hint */}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3 px-1">
+                      <GripVertical className="w-3 h-3" />
+                      <span>Drag tasks to reorder priority</span>
+                    </div>
+
                     <div className="space-y-3">
                       {assignments.map((assignment) => (
                         <SortableAssignment

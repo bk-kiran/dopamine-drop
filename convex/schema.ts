@@ -121,6 +121,13 @@ export default defineSchema({
       v.literal('streak'),
       v.literal('points'),
       v.literal('custom_task'),
+      v.literal('time_based'),
+      v.literal('urgent'),
+      v.literal('clean_sweep'),
+      v.literal('perfect_day'),
+      v.literal('course_clear'),
+      v.literal('consistency'),
+      v.literal('engagement'),
     ),
     targetValue: v.float64(),
     bonusPoints: v.float64(),
@@ -135,7 +142,9 @@ export default defineSchema({
     progress: v.float64(),
     completed: v.boolean(),
     bonusAwarded: v.boolean(),
-  }).index('by_user_date', ['userId', 'date']),
+  })
+    .index('by_user_date', ['userId', 'date'])
+    .index('by_user', ['userId']),
 
   // Achievements pool (static, seeded once)
   achievements: defineTable({
