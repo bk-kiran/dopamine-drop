@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
+import { getCourseCode } from '@/lib/course-utils'
 
 type Category = 'academic' | 'club' | 'work' | 'personal'
 
@@ -586,7 +587,7 @@ export default function SchedulePage() {
                         <p className="text-xs text-[var(--text-muted)] mb-1">
                           {item.isCustomTask
                             ? (item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'Custom')
-                            : item.courseCode}
+                            : getCourseCode(item.courseCode || '')}
                           {' • '}
                           {item.isCustomTask ? `${item.pointsValue}pts` : `${item.pointsPossible}pts`}
                         </p>

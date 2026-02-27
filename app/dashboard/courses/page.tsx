@@ -8,6 +8,7 @@ import { Eye, EyeOff, BookOpen, CheckCircle2, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
+import { formatCourseName, getCourseCode } from '@/lib/course-utils'
 
 interface Course {
   _id: string
@@ -77,10 +78,7 @@ export default function CoursesPage() {
   const courses = dashboardData.courses || []
   const hiddenCourses = dashboardData.user?.hiddenCourses || []
 
-  // Parse course name to remove Canvas IDs and semester codes
-  const parseCourseName = (name: string) => {
-    return name.split('(')[0].trim()
-  }
+  // Course name formatting is now handled by formatCourseName from lib/course-utils.ts
 
   // Group assignments by course
   const assignmentsByCourse = assignments.reduce((acc, assignment) => {
@@ -218,11 +216,8 @@ export default function CoursesPage() {
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1 pr-2">
                 <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-                  {parseCourseName(course.name)}
+                  {formatCourseName(course.name)}
                 </h3>
-                <div className="inline-flex items-center px-2 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold uppercase tracking-wider border border-purple-500/30">
-                  {course.courseCode}
-                </div>
               </div>
 
               {/* Hide/Show toggle button */}

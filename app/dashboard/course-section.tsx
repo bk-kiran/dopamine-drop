@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronDown, ChevronUp, Circle, CheckCircle2, Loader2, Flame, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
+import { formatCourseName } from '@/lib/course-utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,8 +100,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
   const [modalItem, setModalItem] = useState<ModalItem | null>(null)
   const { toast } = useToast()
 
-  const parseCourseName = (name: string) => name.split('(')[0].trim()
-  const courseDisplayName = `${parseCourseName(course.name)} — ${course.course_code}`
+  const courseDisplayName = formatCourseName(course.name)
 
   const openModal = (assignment: Assignment) => {
     const status = getAssignmentStatus(assignment)
@@ -296,7 +296,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
               )}
             </Button>
             <span className="text-[var(--text-primary)] font-bold text-lg">
-              {parseCourseName(course.name)} — {course.course_code}
+              {formatCourseName(course.name)}
             </span>
             <Badge
               className={`px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30 ${
