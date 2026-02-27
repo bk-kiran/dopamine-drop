@@ -90,9 +90,9 @@ export default defineSchema({
       v.literal('personal')
     ),
     pointsValue: v.float64(),
-    dueAt: v.optional(v.string()),
+    dueAt: v.optional(v.string()), // ISO 8601 local datetime: "YYYY-MM-DDTHH:mm:ss" (no Z suffix)
     status: v.union(v.literal('pending'), v.literal('completed')),
-    completedAt: v.optional(v.string()),
+    completedAt: v.optional(v.string()), // ISO 8601 local datetime
     isUrgent: v.optional(v.boolean()),
     urgentOrder: v.optional(v.float64()),
     userNotes: v.optional(v.string()), // Personal notes on the task

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -51,23 +51,67 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
   const { toast } = useToast()
   const isEditing = !!editTask
 
-  const [title, setTitle] = useState(editTask?.title || '')
-  const [description, setDescription] = useState(editTask?.description || '')
-  const [category, setCategory] = useState<Category>(editTask?.category || 'academic')
-  const [pointsValue, setPointsValue] = useState(editTask?.pointsValue?.toString() || '10')
-  const [dueAt, setDueAt] = useState(
-    editTask?.dueAt ? new Date(editTask.dueAt).toISOString().slice(0, 16) : ''
-  )
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [category, setCategory] = useState<Category>('academic')
+  const [pointsValue, setPointsValue] = useState('10')
+  const [dueAt, setDueAt] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const createCustomTask = useMutation(api.customTasks.createCustomTask)
   const updateCustomTask = useMutation(api.customTasks.updateCustomTask)
+
+  // Helper: Format ISO string to datetime-local input format WITHOUT timezone conversion
+  const formatDateForInput = (isoString: string | undefined): string => {
+    if (!isoString) return ''
+
+    // CRITICAL: Avoid new Date() which applies timezone conversion
+    // datetime-local expects: "YYYY-MM-DDTHH:mm"
+
+    // Remove milliseconds and Z suffix if present
+    const cleaned = isoString.replace(/\.\d{3}Z?$/, '')
+
+    // If already in correct format (YYYY-MM-DDTHH:mm), return as-is
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(cleaned)) {
+      return cleaned
+    }
+
+    // If it has seconds, trim to HH:mm
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(cleaned)) {
+      return cleaned.slice(0, 16) // "YYYY-MM-DDTHH:mm"
+    }
+
+    return ''
+  }
+
+  // Reset form when modal opens/closes or editTask changes
+  useEffect(() => {
+    if (open && editTask) {
+      // Editing existing task - populate with current values
+      setTitle(editTask.title || '')
+      setDescription(editTask.description || '')
+      setCategory(editTask.category || 'academic')
+      setPointsValue(editTask.pointsValue?.toString() || '10')
+      setDueAt(formatDateForInput(editTask.dueAt))
+    } else if (open && !editTask) {
+      // Creating new task - reset to defaults
+      setTitle('')
+      setDescription('')
+      setCategory('academic')
+      setPointsValue('10')
+      setDueAt('')
+    }
+  }, [open, editTask])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
 
     const pts = Math.min(100, Math.max(1, parseInt(pointsValue) || 10))
+
+    // Convert datetime-local to ISO string WITHOUT timezone conversion
+    // Input: "2026-02-28T14:30" → Output: "2026-02-28T14:30:00"
+    const dueDateISO = dueAt ? `${dueAt}:00` : undefined
 
     setIsSubmitting(true)
     try {
@@ -79,7 +123,7 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
           description: description.trim() || undefined,
           category,
           pointsValue: pts,
-          dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+          dueAt: dueDateISO,
         })
         toast({
           title: 'Task updated',
@@ -92,7 +136,7 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
           description: description.trim() || undefined,
           category,
           pointsValue: pts,
-          dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+          dueAt: dueDateISO,
         })
         toast({
           title: `Task added — ${pts} pts available`,
