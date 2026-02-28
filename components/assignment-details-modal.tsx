@@ -185,7 +185,9 @@ export function AssignmentDetailsModal({
         toast({
           title: `+${result.pointsAwarded} pts — ${item.title}`,
           description: result.multiplierActive ? '2× XP multiplier applied!' : result.reason.replace('_', ' '),
-          className: result.multiplierActive ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200',
+          className: result.multiplierActive
+            ? 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100'
+            : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
           duration: 4000,
         })
       } else {
@@ -196,7 +198,9 @@ export function AssignmentDetailsModal({
         toast({
           title: `+${result.pointsAwarded} pts — ${item.title}`,
           description: result.multiplierActive ? '2× XP multiplier applied!' : undefined,
-          className: result.multiplierActive ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200',
+          className: result.multiplierActive
+            ? 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100'
+            : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
           duration: 4000,
         })
       }
@@ -221,7 +225,7 @@ export function AssignmentDetailsModal({
         toast({
           title: `Assignment unticked — ${result.pointsRemoved} pts removed`,
           description: item.title,
-          className: 'bg-orange-50 border-orange-200',
+          className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
           duration: 4000,
         })
       } else {
@@ -232,7 +236,7 @@ export function AssignmentDetailsModal({
         toast({
           title: `Task unticked — ${result.pointsRemoved} pts removed`,
           description: item.title,
-          className: 'bg-orange-50 border-orange-200',
+          className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
           duration: 4000,
         })
       }

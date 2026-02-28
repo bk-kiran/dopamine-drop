@@ -268,14 +268,16 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       toast({
         title: `+${result.pointsAwarded} pts — ${taskTitle}`,
         description: result.multiplierActive ? '2× XP multiplier applied!' : undefined,
-        className: result.multiplierActive ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200',
+        className: result.multiplierActive
+          ? 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100'
+          : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
         duration: 4000,
       })
       if (result.shieldUsed && result.protectedStreak) {
         toast({
           title: `Shield used! Your ${result.protectedStreak}-day streak is protected`,
           description: 'A streak shield absorbed the missed day.',
-          className: 'bg-purple-50 border-purple-200',
+          className: 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100',
           duration: 5000,
         })
       }
@@ -298,7 +300,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       toast({
         title: `Task unticked — ${result.pointsRemoved} pts removed`,
         description: taskToUntick.title,
-        className: 'bg-orange-50 border-orange-200',
+        className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
         duration: 4000,
       })
     } catch (err: any) {
