@@ -1,0 +1,22 @@
+/* Dopamine Drop sidebar container */
+#dd-sidebar-container {
+  width: 100%;
+  min-height: 600px;
+  margin-bottom: 20px;
+}
+
+#dd-sidebar-iframe {
+  background: transparent;
+}
+
+/* Hide Canvas widgets we're replacing */
+.to-do-list,
+.coming_up {
+  display: none !important;
+}
+
+/* Ensure our sidebar wrapper fits properly */
+.dd-sidebar-wrapper {
+  width: 100%;
+  display: block;
+}

@@ -1,0 +1,635 @@
+/* ============================================
+   RESET & BASE STYLES
+   ============================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-x: hidden;
+  width: 320px;
+  min-height: 100vh;
+}
+
+/* ============================================
+   LIGHT MODE THEME
+   ============================================ */
+.light-mode {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --text-primary: #0F172A;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
+  --card-bg: #FFFFFF;
+  --card-border: #E2E8F0;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --purple-accent: #A855F7;
+  --purple-hover: #9333EA;
+  --purple-light: rgba(168, 85, 247, 0.1);
+  --purple-border: rgba(168, 85, 247, 0.2);
+  --progress-bg: #E2E8F0;
+  --progress-fill-start: #A855F7;
+  --progress-fill-end: #7C3AED;
+}
+
+.light-mode body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   DARK MODE THEME
+   ============================================ */
+.dark-mode {
+  --bg-primary: #0F0A1E;
+  --bg-secondary: rgba(255, 255, 255, 0.03);
+  --text-primary: #F1F5F9;
+  --text-muted: #94A3B8;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --card-shadow: 0 0 15px rgba(168, 85, 247, 0.1);
+  --purple-accent: #A855F7;
+  --purple-hover: #9333EA;
+  --purple-light: rgba(168, 85, 247, 0.15);
+  --purple-border: rgba(168, 85, 247, 0.3);
+  --progress-bg: rgba(255, 255, 255, 0.1);
+  --progress-fill-start: #A855F7;
+  --progress-fill-end: #9333EA;
+}
+
+.dark-mode body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Dark mode ambient gradient */
+.dark-mode body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.15), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.dd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.dd-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.dd-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--purple-light);
+  border: 1px solid var(--purple-border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.dark-mode .dd-chip {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+}
+
+.chip-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.chip-value {
+  color: var(--text-primary);
+}
+
+.dd-settings-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.dd-settings-btn:hover {
+  color: var(--purple-accent);
+  border-color: var(--purple-accent);
+}
+
+/* ============================================
+   PROGRESS SECTION
+   ============================================ */
+.dd-progress-section {
+  padding: 0 16px 16px;
+}
+
+.progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--progress-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--progress-fill-start) 0%, var(--progress-fill-end) 100%);
+  border-radius: 4px;
+  transition: width 1s ease;
+}
+
+.dark-mode .progress-fill {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.progress-percentage {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 40px;
+  text-align: right;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   WEEK NAVIGATOR
+   ============================================ */
+.dd-week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.week-nav-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s ease;
+}
+
+.week-nav-btn:hover {
+  color: var(--purple-accent);
+}
+
+.week-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ============================================
+   TABS
+   ============================================ */
+.dd-tabs {
+  display: flex;
+  gap: 24px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dd-tab {
+  background: none;
+  border: none;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.dd-tab:hover {
+  color: var(--text-primary);
+}
+
+.dd-tab.active {
+  color: var(--text-primary);
+}
+
+.dd-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--purple-accent);
+  border-radius: 3px 3px 0 0;
+}
+
+.dark-mode .dd-tab.active::after {
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+}
+
+/* ============================================
+   FILTER BAR
+   ============================================ */
+.dd-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dd-course-filter {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dd-course-filter:hover {
+  border-color: var(--purple-accent);
+}
+
+.dd-add-task-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.dd-add-task-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+}
+
+.dark-mode .dd-add-task-btn {
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+/* ============================================
+   TASKS LIST
+   ============================================ */
+.dd-tasks-list,
+.dd-graded-list {
+  padding: 12px 16px;
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
+}
+
+/* Custom scrollbar */
+.dd-tasks-list::-webkit-scrollbar,
+.dd-graded-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dd-tasks-list::-webkit-scrollbar-track,
+.dd-graded-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dd-tasks-list::-webkit-scrollbar-thumb,
+.dd-graded-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.dd-tasks-list::-webkit-scrollbar-thumb:hover,
+.dd-graded-list::-webkit-scrollbar-thumb:hover {
+  background: var(--purple-accent);
+}
+
+/* ============================================
+   TASK CARDS
+   ============================================ */
+.dd-task-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.light-mode .dd-task-card {
+  box-shadow: var(--card-shadow);
+}
+
+.dark-mode .dd-task-card {
+  backdrop-filter: blur(10px);
+}
+
+.dd-task-card:hover {
+  border-color: var(--purple-accent);
+  transform: translateY(-1px);
+}
+
+.dark-mode .dd-task-card:hover {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+}
+
+/* Urgent task */
+.dd-task-card.urgent {
+  border-left: 3px solid #F97316;
+}
+
+/* Completed task */
+.dd-task-card.completed {
+  opacity: 0.6;
+}
+
+.dd-task-card.completed .task-title {
+  text-decoration: line-through;
+}
+
+/* Task checkbox */
+.task-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.task-checkbox:hover {
+  border-color: var(--purple-accent);
+}
+
+.task-checkbox.checked {
+  background: var(--purple-accent);
+  border-color: var(--purple-accent);
+}
+
+.dark-mode .task-checkbox.checked {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+.task-checkbox svg {
+  width: 12px;
+  height: 12px;
+  stroke: white;
+  stroke-width: 3;
+  display: none;
+}
+
+.task-checkbox.checked svg {
+  display: block;
+}
+
+/* Task content */
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.task-title-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-course {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.task-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.task-badges {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.task-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.task-badge.custom {
+  background: rgba(168, 85, 247, 0.2);
+  color: var(--purple-accent);
+}
+
+.task-badge.urgent-badge {
+  background: rgba(249, 115, 22, 0.2);
+  color: #F97316;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.task-due {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-due.overdue {
+  color: #EF4444;
+}
+
+.task-due.soon {
+  color: #F97316;
+}
+
+.task-points {
+  color: var(--text-muted);
+}
+
+/* Urgent toggle button */
+.task-urgent-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.task-urgent-btn:hover,
+.task-urgent-btn.active {
+  opacity: 1;
+}
+
+/* ============================================
+   LOADING & EMPTY STATES
+   ============================================ */
+.dd-loading {
+  padding: 20px 0;
+}
+
+.skeleton-card {
+  height: 80px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.dd-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.dd-empty svg {
+  margin: 0 auto 16px;
+  opacity: 0.4;
+}
+
+.empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.empty-text {
+  font-size: 13px;
+}
+
+/* ============================================
+   GRADED SECTION
+   ============================================ */
+.graded-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.graded-item:last-child {
+  border-bottom: none;
+}
+
+.graded-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.graded-course {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.graded-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.graded-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.graded-score {
+  font-weight: 600;
+  color: var(--text-primary);
+}

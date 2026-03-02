@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dopamine drop</title>
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+<body class="light-mode">
+
+  <!-- Header Section -->
+  <div class="dd-header">
+    <!-- Chips (synced state shows both, unsynced shows only streak) -->
+    <div class="dd-chips" id="chips">
+      <div class="dd-chip dd-streak-chip">
+        <span class="chip-icon">🔥</span>
+        <span class="chip-value" id="streak-value">0 days</span>
+      </div>
+      <div class="dd-chip dd-points-chip" id="points-chip" style="display: none;">
+        <span class="chip-icon">⚡</span>
+        <span class="chip-value" id="points-value">0 pts</span>
+      </div>
+    </div>
+    <button class="dd-settings-btn" id="settings-btn" title="Settings">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Progress Section -->
+  <div class="dd-progress-section">
+    <div class="progress-label">WEEKLY PROGRESS</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+      </div>
+      <span class="progress-percentage" id="progress-percentage">0%</span>
+    </div>
+    <div class="progress-text" id="progress-text">0/0 tasks complete</div>
+  </div>
+
+  <!-- Week Navigator -->
+  <div class="dd-week-nav">
+    <button class="week-nav-btn" id="prev-week" aria-label="Previous week">‹</button>
+    <span class="week-label" id="week-label">Loading...</span>
+    <button class="week-nav-btn" id="next-week" aria-label="Next week">›</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="dd-tabs">
+    <button class="dd-tab active" data-tab="tasks">Tasks</button>
+    <button class="dd-tab" data-tab="graded">Graded</button>
+  </div>
+
+  <!-- Filter & Add Bar -->
+  <div class="dd-filter-bar">
+    <select class="dd-course-filter" id="course-filter">
+      <option value="all">All Courses</option>
+    </select>
+    <button class="dd-add-task-btn" id="add-task-btn">+ Add Task</button>
+  </div>
+
+  <!-- Tasks List -->
+  <div class="dd-tasks-list" id="tasks-list">
+    <!-- Loading state -->
+    <div class="dd-loading" id="loading">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="dd-empty" id="empty" style="display: none;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <div class="empty-title">All caught up! 🎉</div>
+      <div class="empty-text">No tasks due this week</div>
+    </div>
+
+    <!-- Tasks will be inserted here by JS -->
+  </div>
+
+  <!-- Graded List (hidden by default) -->
+  <div class="dd-graded-list" id="graded-list" style="display: none;">
+    <!-- Graded assignments will be inserted here -->
+  </div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

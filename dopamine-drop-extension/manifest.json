@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Dopamine Drop for Canvas",
+  "version": "1.0.0",
+  "description": "Productivity sidebar for Canvas LMS - track assignments, build streaks, and gamify your studies",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.instructure.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://*.instructure.com/*"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidebar/sidebar.html",
+        "sidebar/sidebar.css",
+        "sidebar/sidebar.js",
+        "utils/canvas-api.js",
+        "utils/storage.js"
+      ],
+      "matches": ["https://*.instructure.com/*"]
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dopamine Drop Icon Generator</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .instructions {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .instructions ol {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .instructions li {
+      margin: 8px 0;
+    }
+    .canvas-container {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .icon-wrapper {
+      text-align: center;
+    }
+    .icon-wrapper p {
+      margin: 10px 0 5px 0;
+      font-weight: 600;
+      color: #666;
+    }
+    canvas {
+      border: 2px solid #e0e0e0;
+      border-radius: 4px;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+    button {
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Dopamine Drop Icon Generator</h1>
+
+  <div class="instructions">
+    <h2>How to use:</h2>
+    <ol>
+      <li>The icons are automatically generated below with purple gradient backgrounds and white "DD" text</li>
+      <li>Right-click on each canvas and select "Save Image As..."</li>
+      <li>Save them in this folder as:
+        <ul>
+          <li><code>icon-16.png</code> (16×16 icon)</li>
+          <li><code>icon-48.png</code> (48×48 icon)</li>
+          <li><code>icon-128.png</code> (128×128 icon)</li>
+        </ul>
+      </li>
+      <li>Or use the download buttons below each icon</li>
+    </ol>
+  </div>
+
+  <div class="canvas-container">
+    <div class="icon-wrapper">
+      <p>16×16 Icon</p>
+      <canvas id="icon-16" width="16" height="16"></canvas>
+      <br>
+      <button onclick="downloadIcon('icon-16', 16)">Download</button>
+    </div>
+
+    <div class="icon-wrapper">
+      <p>48×48 Icon</p>
+      <canvas id="icon-48" width="48" height="48"></canvas>
+      <br>
+      <button onclick="downloadIcon('icon-48', 48)">Download</button>
+    </div>
+
+    <div class="icon-wrapper">
+      <p>128×128 Icon</p>
+      <canvas id="icon-128" width="128" height="128"></canvas>
+      <br>
+      <button onclick="downloadIcon('icon-128', 128)">Download</button>
+    </div>
+  </div>
+
+  <script>
+    function drawIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#a855f7');
+      gradient.addColorStop(1, '#6366f1');
+
+      // Fill background
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw "DD" text
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Font size based on canvas size
+      const fontSize = Math.floor(size * 0.5);
+      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+
+      ctx.fillText('DD', size / 2, size / 2);
+    }
+
+    function downloadIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = `icon-${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Draw all icons on page load
+    drawIcon('icon-16', 16);
+    drawIcon('icon-48', 48);
+    drawIcon('icon-128', 128);
+  </script>
+</body>
+</html>
