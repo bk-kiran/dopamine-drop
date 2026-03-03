@@ -12,6 +12,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Redirect authenticated users away from auth pages
+  const isAuthPage = request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup'
+  if (isAuthPage && user) {
+    const redirectUrl = new URL('/dashboard', request.url)
+    return NextResponse.redirect(redirectUrl)
+  }
+
   return supabaseResponse
 }
 
