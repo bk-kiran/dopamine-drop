@@ -226,11 +226,19 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
   }
 
   const handleToggleUrgent = async (assignmentId: string, currentlyUrgent: boolean) => {
+    console.log('[Course Section] Toggle urgent clicked:', {
+      assignmentId,
+      currentlyUrgent,
+      willBeUrgent: !currentlyUrgent,
+    })
+
     try {
       const result = await toggleUrgent({
         assignmentId: assignmentId as any,
         supabaseId: supabaseUserId,
       })
+
+      console.log('[Course Section] Toggle mutation complete:', result)
 
       // Show toast based on new state
       const nowUrgent = result.isUrgent
@@ -249,7 +257,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
         duration: 2000,
       })
     } catch (error: any) {
-      console.error('Error toggling urgent status:', error)
+      console.error('[Course Section] Error toggling urgent status:', error)
       toast({
         title: 'Error',
         description: error.message || 'Failed to update urgent status',

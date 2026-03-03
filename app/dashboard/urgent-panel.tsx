@@ -55,7 +55,13 @@ function formatDate(dateString: string | null): string {
   })
 }
 
-function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
+function SortableAssignment({
+  assignment,
+  onToggleComplete,
+}: {
+  assignment: UrgentAssignment
+  onToggleComplete: (assignment: UrgentAssignment) => void
+}) {
   const {
     attributes,
     listeners,
@@ -89,14 +95,21 @@ function SortableAssignment({ assignment }: { assignment: UrgentAssignment }) {
         <GripVertical className="h-5 w-5" />
       </div>
 
-      {/* Checkbox (non-interactive in this panel) */}
-      <div className="flex-shrink-0">
+      {/* Checkbox */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleComplete(assignment)
+        }}
+        className="flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
+        title={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+      >
         {isCompleted ? (
           <CheckCircle2 className="h-5 w-5 text-green-600" />
         ) : (
-          <Circle className="h-5 w-5 text-gray-400" />
+          <Circle className="h-5 w-5 text-gray-400 hover:text-green-500" />
         )}
-      </div>
+      </button>
 
       {/* Assignment info */}
       <div className="flex-1 min-w-0">
@@ -126,39 +139,77 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
     supabaseId: supabaseUserId,
   })
 
+  const urgentCustomTasks = useQuery(api.customTasks.getUrgentCustomTasks, {
+    supabaseId: supabaseUserId,
+  })
+
   const userData = useQuery(api.users.getUserBySupabaseId, {
     supabaseId: supabaseUserId,
   })
 
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
+  const reorderUrgentCustomTasks = useMutation(api.customTasks.reorderUrgentCustomTasks)
+  const completeAssignment = useMutation(api.assignments.completeAssignment)
+  const uncompleteAssignment = useMutation(api.assignments.uncompleteAssignment)
+  const completeCustomTask = useMutation(api.customTasks.completeCustomTask)
+  const uncompleteCustomTask = useMutation(api.customTasks.uncompleteCustomTask)
 
-  // Local state for optimistic reordering
+  // Local state for drag-and-drop only (no optimistic updates)
   const [localAssignments, setLocalAssignments] = useState<UrgentAssignment[]>([])
 
-  // Filter out hidden courses
+  // Filter out hidden courses from Canvas assignments
   const hiddenCourses = userData?.hiddenCourses || []
   const visibleUrgentAssignments = urgentAssignments?.filter(
     (a) => !hiddenCourses.includes(a.canvasCourseId)
   )
 
-  // Sync with Convex data
-  const assignments = visibleUrgentAssignments || localAssignments
+  // Convert custom tasks to the same format as assignments
+  const formattedCustomTasks = (urgentCustomTasks || []).map((task) => ({
+    _id: task._id,
+    title: task.title,
+    dueAt: task.dueAt || null,
+    pointsPossible: task.pointsValue,
+    status: 'pending' as const, // Custom tasks only show if pending
+    courseName: task.category,
+    courseCode: task.category.toUpperCase().slice(0, 4),
+    canvasCourseId: '', // Not a Canvas course
+    urgentOrder: task.urgentOrder || 0,
+  }))
 
-  // Update local state when Convex data changes
-  if (visibleUrgentAssignments && visibleUrgentAssignments.length !== localAssignments.length) {
-    setLocalAssignments(visibleUrgentAssignments as UrgentAssignment[])
-  }
+  // Combine Canvas assignments and custom tasks, sorted by urgentOrder
+  const combinedUrgent = [
+    ...(visibleUrgentAssignments || []),
+    ...formattedCustomTasks,
+  ].sort((a, b) => (a.urgentOrder || 0) - (b.urgentOrder || 0))
 
-  // Debug logging
+  // Use combined urgent as source of truth, local state only for optimistic drag updates
+  const [isDragging, setIsDragging] = useState(false)
+  const assignments = isDragging ? localAssignments : combinedUrgent
+
+  // Sync local state with Convex data when not dragging
   useEffect(() => {
-    console.log('[Urgent Panel] Updated:', visibleUrgentAssignments?.length, 'tasks')
-    console.log('[Urgent Panel] Task statuses:', visibleUrgentAssignments?.map(t => ({
+    if (!isDragging && combinedUrgent.length > 0) {
+      setLocalAssignments(combinedUrgent as UrgentAssignment[])
+    }
+  }, [combinedUrgent, isDragging])
+
+  // Debug logging - track when Convex queries update
+  useEffect(() => {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('[Urgent Panel] 🔄 QUERIES UPDATED at', new Date().toISOString())
+    console.log('[Urgent Panel] Canvas assignments query:', visibleUrgentAssignments?.length || 0)
+    console.log('[Urgent Panel] Custom tasks query:', urgentCustomTasks?.length || 0)
+    console.log('[Urgent Panel] Combined urgent total:', combinedUrgent.length)
+    console.log('[Urgent Panel] Task IDs:', combinedUrgent.map(t => t._id))
+    console.log('[Urgent Panel] Task details:', combinedUrgent.map(t => ({
+      id: t._id,
       title: t.title,
       status: t.status,
-      isUrgent: true,
-      canvasCourseId: t.canvasCourseId,
+      isCustom: !t.canvasCourseId,
+      urgentOrder: t.urgentOrder,
     })))
-  }, [visibleUrgentAssignments])
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  }, [visibleUrgentAssignments, urgentCustomTasks, combinedUrgent])
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -168,8 +219,64 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
     })
   )
 
+  const handleToggleComplete = async (assignment: UrgentAssignment) => {
+    const isCustomTask = assignment.canvasCourseId === ''
+    const isCompleted = assignment.status === 'submitted'
+
+    console.log('[Urgent Panel] Toggling completion:', {
+      id: assignment._id,
+      title: assignment.title,
+      isCustomTask,
+      currentStatus: assignment.status,
+      isCompleted,
+    })
+
+    try {
+      if (isCustomTask) {
+        // Custom task
+        if (isCompleted) {
+          console.log('[Urgent Panel] Uncompleting custom task...')
+          await uncompleteCustomTask({
+            taskId: assignment._id as any,
+            supabaseId: supabaseUserId,
+          })
+        } else {
+          console.log('[Urgent Panel] Completing custom task...')
+          await completeCustomTask({
+            taskId: assignment._id as any,
+            supabaseId: supabaseUserId,
+          })
+        }
+      } else {
+        // Canvas assignment
+        if (isCompleted) {
+          console.log('[Urgent Panel] Uncompleting Canvas assignment...')
+          await uncompleteAssignment({
+            assignmentId: assignment._id as any,
+            supabaseId: supabaseUserId,
+          })
+        } else {
+          console.log('[Urgent Panel] Completing Canvas assignment...')
+          await completeAssignment({
+            assignmentId: assignment._id as any,
+            supabaseId: supabaseUserId,
+          })
+        }
+      }
+      console.log('[Urgent Panel] Completion mutation finished - waiting for Convex to update queries')
+    } catch (error) {
+      console.error('[Urgent Panel] Error toggling completion:', error)
+    }
+  }
+
+  const handleDragStart = () => {
+    setIsDragging(true)
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
+
+    setIsDragging(false)
 
     if (!over || active.id === over.id) {
       return
@@ -183,17 +290,40 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
     // Optimistic update
     const reordered = arrayMove(assignments, oldIndex, newIndex)
     setLocalAssignments(reordered)
+    setIsDragging(true) // Keep showing optimistic state until server responds
+
+    // Separate Canvas assignments and custom tasks
+    const canvasAssignmentIds = reordered
+      .filter((a) => a.canvasCourseId !== '') // Has a Canvas course ID
+      .map((a) => a._id)
+
+    const customTaskIds = reordered
+      .filter((a) => a.canvasCourseId === '') // No Canvas course ID = custom task
+      .map((a) => a._id)
 
     // Persist to Convex
     try {
-      await reorderUrgentAssignments({
-        supabaseId: supabaseUserId,
-        assignmentIds: reordered.map((a) => a._id) as any,
-      })
+      // Reorder Canvas assignments if any
+      if (canvasAssignmentIds.length > 0) {
+        await reorderUrgentAssignments({
+          supabaseId: supabaseUserId,
+          assignmentIds: canvasAssignmentIds as any,
+        })
+      }
+
+      // Reorder custom tasks if any
+      if (customTaskIds.length > 0) {
+        await reorderUrgentCustomTasks({
+          supabaseId: supabaseUserId,
+          customTaskIds: customTaskIds as any,
+        })
+      }
     } catch (error) {
-      console.error('Error reordering urgent assignments:', error)
+      console.error('Error reordering urgent items:', error)
       // Revert on error
-      setLocalAssignments(visibleUrgentAssignments as UrgentAssignment[])
+      setLocalAssignments(combinedUrgent as UrgentAssignment[])
+    } finally {
+      setIsDragging(false) // Return to reactive state
     }
   }
 
@@ -249,6 +379,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
@@ -266,6 +397,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
                         <SortableAssignment
                           key={assignment._id}
                           assignment={assignment}
+                          onToggleComplete={handleToggleComplete}
                         />
                       ))}
                     </div>

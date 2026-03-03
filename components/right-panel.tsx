@@ -205,12 +205,21 @@ export function RightPanel() {
 
   const urgentCount = mergedUrgentItems.length
 
-  // Update local state when data changes
+  // Debug logging - track when queries update
   useEffect(() => {
-    if (mergedUrgentItems.length > 0) {
-      setLocalUrgentItems(mergedUrgentItems)
-    }
-  }, [JSON.stringify(mergedUrgentItems)])
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('[Right Panel] 🔄 QUERIES UPDATED at', new Date().toISOString())
+    console.log('[Right Panel] Urgent assignments query:', urgentAssignments?.length || 0)
+    console.log('[Right Panel] Urgent custom tasks query:', urgentCustomTasks?.length || 0)
+    console.log('[Right Panel] Merged urgent total:', mergedUrgentItems.length)
+    console.log('[Right Panel] Merged IDs:', mergedUrgentItems.map(i => i._id))
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  }, [urgentAssignments, urgentCustomTasks, mergedUrgentItems.length])
+
+  // Update local state when data changes - FIXED: Always update, not just when length > 0
+  useEffect(() => {
+    setLocalUrgentItems(mergedUrgentItems)
+  }, [urgentAssignments, urgentCustomTasks])
 
   // Use local state for display (for optimistic updates)
   const displayItems = localUrgentItems.length > 0 ? localUrgentItems : mergedUrgentItems

@@ -407,11 +407,12 @@ export const manuallyCompleteAssignment = mutation({
     const finalStreakBonus = multiplierActive ? streakBonus * 2 : streakBonus
     const multiplierSuffix = multiplierActive ? ' (2x Multiplier!)' : ''
 
-    // Update assignment status
+    // Update assignment status and clear urgent flag
     await ctx.db.patch(args.assignmentId, {
       status: 'submitted',
       submittedAt,
       manuallyCompleted: true,
+      isUrgent: false, // Clear urgent flag when completed
     })
 
     // Add base points to ledger

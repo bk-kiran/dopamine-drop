@@ -23,7 +23,8 @@ import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-
 import { SortableSection } from '@/components/sortable-section'
 import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
-import { Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
+import { UrgentPanel } from './urgent-panel'
+import { Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck, Target } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
 import {
@@ -99,6 +100,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [isUrgentPanelOpen, setIsUrgentPanelOpen] = useState(false)
   const { toast } = useToast()
 
   // Consolidated dashboard query (reduces 3 queries to 1)
@@ -322,9 +324,18 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     }
   }
 
-  const handleToggleUrgentTask = async (taskId: string) => {
+  const handleToggleUrgentTask = async (taskId: string, currentlyUrgent: boolean) => {
+    console.log('[Dashboard] Toggle urgent custom task:', {
+      taskId,
+      currentlyUrgent,
+      willBeUrgent: !currentlyUrgent,
+    })
+
     try {
       const result = await toggleUrgentCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+
+      console.log('[Dashboard] Toggle mutation complete:', result)
+
       toast({
         description: result.isUrgent ? (
           <span className="flex items-center gap-1.5">
@@ -340,6 +351,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         duration: 2000,
       })
     } catch (err: any) {
+      console.error('[Dashboard] Error toggling urgent:', err)
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     }
   }
@@ -469,7 +481,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
                             {/* Flame urgent button */}
                             <button
-                              onClick={() => handleToggleUrgentTask(task._id)}
+                              onClick={() => handleToggleUrgentTask(task._id, task.isUrgent || false)}
                               className={`p-1 rounded hover:bg-orange-50 transition-colors ${task.isUrgent ? '' : 'opacity-0 group-hover/task:opacity-100'}`}
                             >
                               <Flame className={`w-4 h-4 ${task.isUrgent ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
@@ -673,6 +685,16 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             <span className="text-xs font-semibold">ADD TASK</span>
           </button>
 
+          {/* Urgent Tasks button */}
+          <button
+            onClick={() => setIsUrgentPanelOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 hover:border-orange-400/50 transition-all duration-200 text-orange-400"
+            title="View urgent tasks"
+          >
+            <Target className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">URGENT</span>
+          </button>
+
           {/* Navbar (sync + theme toggle) */}
           <DashboardNavbar />
         </div>
@@ -817,6 +839,13 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Urgent Panel - slide-out from right */}
+      <UrgentPanel
+        supabaseUserId={supabaseUserId}
+        isOpen={isUrgentPanelOpen}
+        onClose={() => setIsUrgentPanelOpen(false)}
+      />
     </div>
   )
 }
