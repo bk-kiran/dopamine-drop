@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut } from 'lucide-react'
+import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { redirect, useRouter } from 'next/navigation'
 import { LevelCard } from '@/components/level-card'
@@ -48,6 +48,8 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -227,6 +229,24 @@ export default function ProfilePage() {
   const handleCropCancel = () => {
     setShowCropModal(false)
     setRawImageSrc(null)
+  }
+
+  const handleDisconnectCanvas = async () => {
+    setIsDisconnecting(true)
+    try {
+      const res = await fetch('/api/canvas/disconnect', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        toast({ title: 'Canvas disconnected', description: 'Your points and progress are safe!' })
+        setShowDisconnectConfirm(false)
+      } else {
+        toast({ title: 'Error', description: data.error || 'Failed to disconnect', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'An unexpected error occurred', variant: 'destructive' })
+    } finally {
+      setIsDisconnecting(false)
+    }
   }
 
   // Get current level for roadmap
@@ -603,6 +623,102 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Canvas Integration */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Canvas Integration</h2>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          {userData?.canvasUserId ? (
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-green-500/20 rounded-lg shrink-0">
+                  <CheckCircle2 className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[var(--text-primary)] mb-1">Canvas Account Connected</p>
+                  <p className="text-sm text-[var(--text-muted)]">Canvas User ID: {userData.canvasUserId}</p>
+                  <p className="text-sm text-[var(--text-muted)]">Assignments sync automatically</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDisconnectConfirm(true)}
+                className="shrink-0 flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Unlink className="w-4 h-4" />
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gray-500/20 rounded-lg shrink-0">
+                <Unlink className="w-6 h-6 text-gray-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-[var(--text-primary)] mb-1">No Canvas Account Linked</p>
+                <p className="text-sm text-[var(--text-muted)] mb-3">Connect Canvas to sync assignments and earn points</p>
+                <button
+                  onClick={() => router.push('/dashboard/setup')}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Connect Canvas
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Disconnect Confirmation Modal */}
+      {showDisconnectConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1030] border border-white/10 rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="p-3 bg-yellow-500/20 rounded-lg shrink-0">
+                <AlertTriangle className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Disconnect Canvas?</h3>
+                <p className="text-sm text-gray-400">This will remove your Canvas token and archive your assignments.</p>
+              </div>
+            </div>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4 text-sm">
+              <p className="text-green-400 font-semibold mb-2">✓ What you keep:</p>
+              <ul className="text-gray-300 space-y-1">
+                <li>All points ({userData?.totalPoints ?? 0} pts)</li>
+                <li>Streak ({userData?.streakCount ?? 0} days) & achievements</li>
+                <li>Custom tasks</li>
+              </ul>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6 text-sm">
+              <p className="text-red-400 font-semibold mb-2">✗ What gets archived:</p>
+              <ul className="text-gray-300 space-y-1">
+                <li>Canvas assignments (restored when you re-link)</li>
+                <li>Automatic Canvas sync</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDisconnectConfirm(false)}
+                disabled={isDisconnecting}
+                className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDisconnectCanvas}
+                disabled={isDisconnecting}
+                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDisconnecting ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> Disconnecting...</>
+                ) : (
+                  <><Unlink className="w-4 h-4" /> Disconnect</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2x XP Day Settings */}
       <div className="space-y-4">

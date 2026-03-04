@@ -498,6 +498,52 @@ export const updateFromClerk = mutation({
   },
 })
 
+// Disconnect Canvas account — clears token but preserves all user progress
+export const disconnectCanvas = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    // Clear Canvas credentials only
+    await ctx.db.patch(user._id, {
+      canvasTokenEncrypted: undefined,
+      canvasTokenIv: undefined,
+      canvasUserId: undefined,
+      displayName: undefined,
+    })
+
+    // Archive all Canvas assignments (soft delete so they can be restored on re-link)
+    const assignments = await ctx.db
+      .query('assignments')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    for (const assignment of assignments) {
+      await ctx.db.patch(assignment._id, { archived: true })
+    }
+
+    // Archive all courses
+    const courses = await ctx.db
+      .query('courses')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    for (const course of courses) {
+      await ctx.db.delete(course._id)
+    }
+
+    return {
+      success: true,
+      assignmentsArchived: assignments.length,
+    }
+  },
+})
+
 // Called when a user is deleted in Clerk
 export const deleteFromClerk = mutation({
   args: { clerkId: v.string() },

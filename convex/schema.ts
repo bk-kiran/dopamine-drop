@@ -70,6 +70,7 @@ export default defineSchema({
     userNotes: v.optional(v.string()), // Personal notes on the assignment
     gradeReceived: v.optional(v.float64()),      // Actual score received e.g. 18
     assignmentGroupName: v.optional(v.string()), // e.g. 'Homework', 'Exams'
+    archived: v.optional(v.boolean()),           // Soft-deleted when Canvas is disconnected
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])

@@ -68,12 +68,15 @@ export async function POST(request: Request) {
 
     const convex = getConvexClient()
 
+    // Ensure Convex user exists (webhook may not have fired yet after signup)
+    await convex.mutation(api.users.getOrCreateUser, { clerkId: userId })
+
     // Check if this Canvas account is already linked to a different dopamine drop account
     const canvasUserIdStr = canvasUser.id.toString()
     const existingOwner = await convex.query(api.users.getUserByCanvasId, {
       canvasUserId: canvasUserIdStr,
     })
-    if (existingOwner && existingOwner.authUserId !== user.id) {
+    if (existingOwner && existingOwner.clerkId !== userId) {
       logSecurityEvent('duplicate_canvas_account', {
         route: '/api/canvas/connect',
         ip,
