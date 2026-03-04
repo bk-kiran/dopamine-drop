@@ -5,10 +5,15 @@ import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
-import { Circle, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Circle, GripVertical, Flame, Trophy, Zap } from 'lucide-react'
 import { LevelCard } from '@/components/level-card'
 import { DailyChallenges } from '@/components/daily-challenges'
+import { cn } from '@/lib/utils'
+import {
+  RightSidebar,
+  RightSidebarBody,
+  RightSidebarSection,
+} from '@/components/ui/right-sidebar'
 import {
   DndContext,
   closestCenter,
@@ -25,16 +30,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-interface UrgentAssignment {
-  _id: string
-  title: string
-  dueAt: string | null
-  pointsPossible: number
-  status: 'pending' | 'submitted' | 'missing'
-  courseName: string
-  courseCode: string
-}
-
 function formatDueDate(dateString: string | null): string {
   if (!dateString) return 'NO DUE DATE'
 
@@ -44,35 +39,18 @@ function formatDueDate(dateString: string | null): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  if (diffMs < 0) {
-    return 'OVERDUE'
-  } else if (diffHours < 1) {
+  if (diffMs < 0) return 'OVERDUE'
+  if (diffHours < 1) {
     const diffMinutes = Math.floor(diffMs / (1000 * 60))
     return `DUE IN ${diffMinutes} MIN${diffMinutes !== 1 ? 'S' : ''}`
-  } else if (diffHours < 24) {
-    return `DUE IN ${diffHours} HOUR${diffHours !== 1 ? 'S' : ''}`
-  } else if (diffDays === 1) {
-    return 'DUE TOMORROW'
-  } else if (diffDays < 7) {
-    return `DUE IN ${diffDays} DAYS`
-  } else {
-    return dueDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })
   }
+  if (diffHours < 24) return `DUE IN ${diffHours} HOUR${diffHours !== 1 ? 'S' : ''}`
+  if (diffDays === 1) return 'DUE TOMORROW'
+  if (diffDays < 7) return `DUE IN ${diffDays} DAYS`
+  return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-interface SortableUrgentItemProps {
-  item: {
-    _id: string
-    title: string
-    dueAt: string | null
-    isCustomTask: boolean
-  }
-}
-
-function SortableUrgentItem({ item }: SortableUrgentItemProps) {
+function SortableUrgentItem({ item }: { item: { _id: string; title: string; dueAt: string | null; isCustomTask: boolean } }) {
   const {
     attributes,
     listeners,
@@ -96,31 +74,38 @@ function SortableUrgentItem({ item }: SortableUrgentItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-400/20 hover:scale-[1.01] transition-all duration-200 group"
+      className={cn(
+        "p-3 rounded-xl border-l-4 border-orange-500 transition-all duration-200 group",
+        "bg-orange-50 hover:bg-orange-100 border border-orange-200",
+        "dark:bg-orange-500/10 dark:hover:bg-orange-500/20 dark:border-orange-500/20"
+      )}
     >
       <div className="flex items-start gap-2">
-        {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-400 group-hover:text-purple-300 transition-colors mt-0.5"
+          className="shrink-0 cursor-grab active:cursor-grabbing text-gray-400 hover:text-purple-500 dark:hover:text-purple-400 transition-colors mt-0.5"
           title="Drag to reorder"
         >
           <GripVertical className="w-4 h-4" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1 truncate">
+          <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1 truncate">
             {item.title}
           </h4>
-          <p className={`text-xs font-bold uppercase tracking-wide ${
-            isOverdue ? 'text-red-400' : isUrgentTime ? 'text-orange-400' : 'text-yellow-400'
-          }`}>
+          <p className={cn(
+            "text-xs font-bold uppercase tracking-wide",
+            isOverdue ? 'text-red-500 dark:text-red-400' :
+            isUrgentTime ? 'text-orange-500 dark:text-orange-400' :
+            'text-yellow-600 dark:text-yellow-400'
+          )}>
             {dueText}
           </p>
         </div>
+
         {item.isCustomTask && (
-          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
+          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30 shrink-0">
             CUSTOM
           </span>
         )}
@@ -129,279 +114,156 @@ function SortableUrgentItem({ item }: SortableUrgentItemProps) {
   )
 }
 
-export function RightPanel() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+function UrgentTasksContent({ supabaseUserId }: { supabaseUserId: string }) {
   const [localUrgentItems, setLocalUrgentItems] = useState<any[]>([])
 
-  // Get Supabase user ID
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setSupabaseUserId(user.id)
-      }
-    }
-    getUser()
-  }, [])
-
-  // Load collapsed state from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem('rightPanelCollapsed')
-    if (stored !== null) {
-      setIsCollapsed(stored === 'true')
-    }
-  }, [])
-
-  const toggleCollapse = () => {
-    const newState = !isCollapsed
-    setIsCollapsed(newState)
-    localStorage.setItem('rightPanelCollapsed', String(newState))
-  }
-
-  // Get urgent assignments
   const urgentAssignments = useQuery(
     api.assignments.getUrgentAssignments,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    { supabaseId: supabaseUserId }
   )
-
-  // Get urgent custom tasks
   const urgentCustomTasks = useQuery(
     api.customTasks.getUrgentCustomTasks,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    { supabaseId: supabaseUserId }
   )
-
-  // Get user data
-  const dashboardData = useQuery(
-    api.users.getDashboardData,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
-  )
-
-  const userData = dashboardData?.user
-  const pointsData = dashboardData?.visiblePoints
-
-  // Mutations for reordering
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
   const reorderUrgentCustomTasks = useMutation(api.customTasks.reorderUrgentCustomTasks)
 
-  // Merge and sort all urgent items by urgentOrder
   const mergedUrgentItems = [
     ...(urgentAssignments || []).map((a: any) => ({
-      _id: a._id,
-      title: a.title,
-      dueAt: a.dueAt,
-      urgentOrder: a.urgentOrder,
-      isCustomTask: false,
+      _id: a._id, title: a.title, dueAt: a.dueAt,
+      urgentOrder: a.urgentOrder, isCustomTask: false,
     })),
     ...(urgentCustomTasks || []).map((t: any) => ({
-      _id: t._id,
-      title: t.title,
-      dueAt: t.dueAt,
-      urgentOrder: t.urgentOrder,
-      isCustomTask: true,
+      _id: t._id, title: t.title, dueAt: t.dueAt,
+      urgentOrder: t.urgentOrder, isCustomTask: true,
     })),
   ].sort((a, b) => (a.urgentOrder ?? 0) - (b.urgentOrder ?? 0))
 
-  const urgentCount = mergedUrgentItems.length
-
-  // Debug logging - track when queries update
-  useEffect(() => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('[Right Panel] 🔄 QUERIES UPDATED at', new Date().toISOString())
-    console.log('[Right Panel] Urgent assignments query:', urgentAssignments?.length || 0)
-    console.log('[Right Panel] Urgent custom tasks query:', urgentCustomTasks?.length || 0)
-    console.log('[Right Panel] Merged urgent total:', mergedUrgentItems.length)
-    console.log('[Right Panel] Merged IDs:', mergedUrgentItems.map(i => i._id))
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  }, [urgentAssignments, urgentCustomTasks, mergedUrgentItems.length])
-
-  // Update local state when data changes - FIXED: Always update, not just when length > 0
   useEffect(() => {
     setLocalUrgentItems(mergedUrgentItems)
   }, [urgentAssignments, urgentCustomTasks])
 
-  // Use local state for display (for optimistic updates)
   const displayItems = localUrgentItems.length > 0 ? localUrgentItems : mergedUrgentItems
 
-  // Drag and drop sensors
   const sensors = useSensors(useSensor(PointerSensor))
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
-
-    if (!over || active.id === over.id || !supabaseUserId) return
+    if (!over || active.id === over.id) return
 
     const oldIndex = displayItems.findIndex((item) => item._id === active.id)
     const newIndex = displayItems.findIndex((item) => item._id === over.id)
-
     if (oldIndex === -1 || newIndex === -1) return
 
-    // Optimistic update
     const reordered = arrayMove(displayItems, oldIndex, newIndex)
     setLocalUrgentItems(reordered)
 
-    // Persist to Convex - separate assignments and custom tasks
     try {
-      const assignmentIds = reordered
-        .filter((item) => !item.isCustomTask)
-        .map((item) => item._id)
-      const customTaskIds = reordered
-        .filter((item) => item.isCustomTask)
-        .map((item) => item._id)
-
+      const assignmentIds = reordered.filter((i) => !i.isCustomTask).map((i) => i._id)
+      const customTaskIds = reordered.filter((i) => i.isCustomTask).map((i) => i._id)
       if (assignmentIds.length > 0) {
-        await reorderUrgentAssignments({
-          supabaseId: supabaseUserId,
-          assignmentIds: assignmentIds as any,
-        })
+        await reorderUrgentAssignments({ supabaseId: supabaseUserId, assignmentIds: assignmentIds as any })
       }
-
       if (customTaskIds.length > 0) {
-        await reorderUrgentCustomTasks({
-          supabaseId: supabaseUserId,
-          customTaskIds: customTaskIds as any,
-        })
+        await reorderUrgentCustomTasks({ supabaseId: supabaseUserId, customTaskIds: customTaskIds as any })
       }
-    } catch (error) {
-      console.error('Error reordering urgent items:', error)
-      // Revert on error
+    } catch {
       setLocalUrgentItems(mergedUrgentItems)
     }
   }
 
-  // Get user initials
-  const getInitials = () => {
-    if (!userData?.displayName) return '?'
-    const names = userData.displayName.split(' ')
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase()
-    }
-    return names[0][0].toUpperCase()
+  if (urgentAssignments === undefined || urgentCustomTasks === undefined) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-14 rounded-xl animate-pulse bg-gray-200 dark:bg-neutral-800" />
+        ))}
+      </div>
+    )
+  }
+
+  if (displayItems.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <Circle className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-neutral-600" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">No urgent tasks</p>
+      </div>
+    )
   }
 
   return (
-    <motion.aside
-      animate={{ width: isCollapsed ? 64 : 320 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="h-screen bg-[var(--glass-bg)] backdrop-blur-md border-l border-[var(--glass-border)] flex flex-col overflow-hidden"
-    >
-      {/* Collapse Toggle Button */}
-      <div className="p-3 border-b border-[var(--glass-border)]">
-        <button
-          onClick={toggleCollapse}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[var(--text-muted)] hover:bg-purple-500/10 hover:text-purple-400 transition-all duration-200"
-        >
-          {isCollapsed ? (
-            <ChevronLeft className="w-5 h-5" />
-          ) : (
-            <>
-              <span className="text-sm font-medium">Collapse</span>
-              <ChevronRight className="w-5 h-5" />
-            </>
-          )}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="flex-1 overflow-y-auto p-6 space-y-6"
-          >
-            {/* Urgent Tasks Section */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">
-                  URGENT TASKS
-                </h3>
-                {urgentCount > 0 && (
-                  <Badge className="bg-red-500/20 text-red-400 border border-red-500/40 px-2 py-0.5 text-[10px] font-bold uppercase">
-                    {urgentCount} ALERT
-                  </Badge>
-                )}
-              </div>
-
-          {/* Urgent items list (Canvas + custom tasks merged) */}
-          {displayItems.length > 0 ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={displayItems.map((item) => item._id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {displayItems.map((item) => (
-                    <SortableUrgentItem key={item._id} item={item} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            <div className="text-center py-8">
-              <Circle className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
-              <p className="text-sm text-[var(--text-muted)]">No urgent tasks</p>
-            </div>
-          )}
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={displayItems.map((i) => i._id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          {displayItems.map((item) => (
+            <SortableUrgentItem key={item._id} item={item} />
+          ))}
         </div>
+      </SortableContext>
+    </DndContext>
+  )
+}
 
-        {/* Daily Challenges */}
-        {supabaseUserId && <DailyChallenges supabaseUserId={supabaseUserId} />}
+function RightPanelContent({ supabaseUserId }: { supabaseUserId: string }) {
+  const urgentAssignments = useQuery(api.assignments.getUrgentAssignments, { supabaseId: supabaseUserId })
+  const urgentCustomTasks = useQuery(api.customTasks.getUrgentCustomTasks, { supabaseId: supabaseUserId })
+  const urgentCount = (urgentAssignments?.length || 0) + (urgentCustomTasks?.length || 0)
 
-        {/* Goal/Level Progress Card */}
-        {supabaseUserId && <LevelCard supabaseUserId={supabaseUserId} />}
+  return (
+    <RightSidebarBody>
+      {urgentCount > 0 && (
+        <Badge className="mb-3 bg-red-100 text-red-600 border border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/40 text-[10px] font-bold uppercase">
+          {urgentCount} ALERT
+        </Badge>
+      )}
 
-        {/* Profile Mini Card */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
-          <div className="flex items-center gap-3">
-            {/* Avatar */}
-            <div className="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-              <span className="text-base font-bold text-purple-400">
-                {getInitials()}
-              </span>
-            </div>
+      <RightSidebarSection
+        icon={<Flame className="h-5 w-5" />}
+        title="Urgent Tasks"
+      >
+        <UrgentTasksContent supabaseUserId={supabaseUserId} />
+      </RightSidebarSection>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                {userData?.displayName || 'Student'}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {pointsData?.streakCount || 0} day streak
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <RightSidebarSection
+        icon={<Trophy className="h-5 w-5" />}
+        title="Daily Challenges"
+      >
+        <DailyChallenges supabaseUserId={supabaseUserId} />
+      </RightSidebarSection>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <div className="text-center p-2 rounded-lg bg-purple-500/5">
-              <p className="text-lg font-bold text-purple-400">
-                {pointsData?.totalPoints || 0}
-              </p>
-              <p className="text-xs text-[var(--text-muted)]">Total Points</p>
-            </div>
-            <div className="text-center p-2 rounded-lg bg-purple-500/5">
-              <p className="text-lg font-bold text-purple-400">
-                {pointsData?.longestStreak || 0}
-              </p>
-              <p className="text-xs text-[var(--text-muted)]">Best Streak</p>
-            </div>
-          </div>
-        </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.aside>
+      <RightSidebarSection
+        icon={<Zap className="h-5 w-5 fill-purple-500 dark:fill-purple-400" />}
+        title="Level Progress"
+      >
+        <LevelCard supabaseUserId={supabaseUserId} />
+      </RightSidebarSection>
+    </RightSidebarBody>
+  )
+}
+
+
+export function RightPanel() {
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
+  const [rightOpen, setRightOpen] = useState(true)
+
+  useEffect(() => {
+    async function getUser() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setSupabaseUserId(user.id)
+    }
+    getUser()
+  }, [])
+
+  return (
+    <RightSidebar open={rightOpen} setOpen={setRightOpen}>
+      {supabaseUserId ? (
+        <RightPanelContent supabaseUserId={supabaseUserId} />
+      ) : (
+        <RightSidebarBody className="items-center justify-start gap-4">
+          <div className="w-8 h-8 rounded-full animate-pulse bg-gray-200 dark:bg-neutral-700" />
+        </RightSidebarBody>
+      )}
+    </RightSidebar>
   )
 }
