@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { ChevronLeft, ChevronRight, Calendar, BookOpen, Users, Briefcase, Heart } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
@@ -62,7 +63,8 @@ interface ScheduleItem {
 }
 
 export default function SchedulePage() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
+  const { user: clerkUser } = useUser()
+  const supabaseUserId = clerkUser?.id ?? null
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getWeekStart(new Date()))
   const [modalItem, setModalItem] = useState<ModalItem | null>(null)
 
@@ -97,45 +99,28 @@ export default function SchedulePage() {
     }
   }
 
-  // Get Supabase user ID
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user }, error } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        redirect('/login')
-      }
-
-      if (user) {
-        setSupabaseUserId(user.id)
-      }
-    }
-    getUser()
-  }, [])
-
   // Get user data for hiddenCourses
   const userData = useQuery(
     api.users.getUserBySupabaseId,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get all courses
   const allCourses = useQuery(
     api.courses.getCoursesBySupabaseId,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get ALL assignments with course info for schedule
   const allAssignments = useQuery(
     api.assignments.getAssignmentsForSchedule,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get custom tasks (include those with dueAt)
   const allCustomTasks = useQuery(
     api.customTasks.getCustomTasks,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Build set of visible course IDs (exclude hidden courses)

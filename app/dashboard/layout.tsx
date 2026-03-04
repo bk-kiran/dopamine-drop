@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -15,7 +15,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { useRouter, usePathname } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -29,26 +29,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
+  const { user: clerkUser } = useUser()
+  const { signOut } = useClerk()
+  const supabaseUserId = clerkUser?.id ?? null
   const router = useRouter();
   const pathname = usePathname();
-
-  // Get Supabase user ID
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setSupabaseUserId(user.id)
-      }
-    }
-    getUser()
-  }, [])
 
   // Get user data from Convex
   const dashboardData = useQuery(
     api.users.getDashboardData,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   const userData = dashboardData?.user
@@ -56,7 +46,7 @@ export default function DashboardLayout({
   // Get avatar URL
   const avatarUrl = useQuery(
     api.users.getAvatarUrl,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get user initials
@@ -82,9 +72,7 @@ export default function DashboardLayout({
   ];
 
   const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
+    await signOut({ redirectUrl: '/login' })
   };
 
   return (

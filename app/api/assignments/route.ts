@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -7,13 +7,9 @@ import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: '/api/assignments' })
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
@@ -21,14 +17,14 @@ export async function GET() {
       )
     }
 
-    const rateLimitResponse = await checkRateLimit(user.id, 'api')
+    const rateLimitResponse = await checkRateLimit(userId, 'api')
     if (rateLimitResponse) {
-      logSecurityEvent('rate_limit', { route: '/api/assignments', userId: user.id })
+      logSecurityEvent('rate_limit', { route: '/api/assignments', userId })
       return rateLimitResponse
     }
 
     const convex = getConvexClient()
-    const convexUserId = await getConvexUserId(user.id)
+    const convexUserId = await getConvexUserId(userId)
 
     const courses = await convex.query(api.courses.getAllCourses, {
       userId: convexUserId,

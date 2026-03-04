@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   GraduationCap,
@@ -108,16 +109,16 @@ function groupBreakdown(assignments: Assignment[]) {
 
 function CourseGradeCard({
   course,
-  supabaseId,
+  clerkId,
 }: {
   course: Course
-  supabaseId: string
+  clerkId: string
 }) {
   const [expanded, setExpanded] = useState(false)
 
   const assignments = useQuery(
     api.courses.getAssignmentsForGrades,
-    expanded ? { supabaseId, canvasCourseId: course.canvasCourseId } : 'skip'
+    expanded ? { clerkId, canvasCourseId: course.canvasCourseId } : 'skip'
   ) as Assignment[] | undefined
 
   const graded = assignments?.filter((a) => a.gradeReceived != null) ?? []
@@ -314,10 +315,10 @@ function CourseGradeCard({
 // ─── What-If Calculator ───────────────────────────────────────────────────────
 
 function WhatIfCalculator({
-  supabaseId,
+  clerkId,
   visibleCourses,
 }: {
-  supabaseId: string
+  clerkId: string
   visibleCourses: Course[]
 }) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>(
@@ -326,7 +327,7 @@ function WhatIfCalculator({
 
   const assignments = useQuery(
     api.courses.getAssignmentsForGrades,
-    selectedCourseId ? { supabaseId, canvasCourseId: selectedCourseId } : 'skip'
+    selectedCourseId ? { clerkId, canvasCourseId: selectedCourseId } : 'skip'
   ) as Assignment[] | undefined
 
   const [hypotheticalScores, setHypotheticalScores] = useState<Record<string, string>>({})
@@ -466,17 +467,12 @@ function WhatIfCalculator({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GradesPage() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null | undefined>(undefined)
-
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
-      setSupabaseUserId(user?.id ?? null)
-    })
-  }, [])
+  const { user: clerkUser, isLoaded } = useUser()
+  const supabaseUserId = isLoaded ? (clerkUser?.id ?? null) : undefined
 
   const allCourses = useQuery(
     api.courses.getCoursesBySupabaseId,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   ) as Course[] | undefined
 
   const userData = useQuery(
@@ -669,7 +665,7 @@ export default function GradesPage() {
                 <CourseGradeCard
                   key={course._id}
                   course={course}
-                  supabaseId={supabaseUserId}
+                  clerkId={supabaseUserId}
                 />
               ))}
             </div>
@@ -677,7 +673,7 @@ export default function GradesPage() {
 
           {/* What-If calculator — visible courses only */}
           {visibleCourses.length > 0 && (
-            <WhatIfCalculator supabaseId={supabaseUserId} visibleCourses={visibleCourses} />
+            <WhatIfCalculator clerkId={supabaseUserId} visibleCourses={visibleCourses} />
           )}
         </>
       )}

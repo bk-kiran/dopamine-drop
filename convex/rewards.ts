@@ -87,14 +87,14 @@ export const getUserRewards = query({
   },
 })
 
-// Get user rewards by Supabase ID
+// Get user rewards by Clerk ID
 export const getUserRewardsBySupabaseId = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    // Find user by Supabase ID
+    // Find user by Clerk ID
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return []

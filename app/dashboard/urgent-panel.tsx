@@ -136,15 +136,15 @@ function SortableAssignment({
 
 export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProps) {
   const urgentAssignments = useQuery(api.assignments.getUrgentAssignments, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
 
   const urgentCustomTasks = useQuery(api.customTasks.getUrgentCustomTasks, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
 
   const userData = useQuery(api.users.getUserBySupabaseId, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
 
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
@@ -238,13 +238,13 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
           console.log('[Urgent Panel] Uncompleting custom task...')
           await uncompleteCustomTask({
             taskId: assignment._id as any,
-            supabaseId: supabaseUserId,
+            clerkId: supabaseUserId,
           })
         } else {
           console.log('[Urgent Panel] Completing custom task...')
           await completeCustomTask({
             taskId: assignment._id as any,
-            supabaseId: supabaseUserId,
+            clerkId: supabaseUserId,
           })
         }
       } else {
@@ -253,13 +253,13 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
           console.log('[Urgent Panel] Uncompleting Canvas assignment...')
           await uncompleteAssignment({
             assignmentId: assignment._id as any,
-            supabaseId: supabaseUserId,
+            clerkId: supabaseUserId,
           })
         } else {
           console.log('[Urgent Panel] Completing Canvas assignment...')
           await completeAssignment({
             assignmentId: assignment._id as any,
-            supabaseId: supabaseUserId,
+            clerkId: supabaseUserId,
           })
         }
       }
@@ -306,7 +306,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
       // Reorder Canvas assignments if any
       if (canvasAssignmentIds.length > 0) {
         await reorderUrgentAssignments({
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
           assignmentIds: canvasAssignmentIds as any,
         })
       }
@@ -314,7 +314,7 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
       // Reorder custom tasks if any
       if (customTaskIds.length > 0) {
         await reorderUrgentCustomTasks({
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
           customTaskIds: customTaskIds as any,
         })
       }

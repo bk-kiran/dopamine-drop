@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { CanvasClient } from '@/lib/canvas-api'
 import { encryptToken } from '@/lib/encryption'
 import { getConvexClient } from '@/lib/convex-client'
+
 import { api } from '@/convex/_generated/api'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import { validateInput, canvasTokenSchema } from '@/lib/validation'
@@ -55,13 +56,9 @@ export async function POST(request: Request) {
 
     const { encrypted, iv } = encryptToken(token)
 
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: '/api/canvas/connect', ip })
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
@@ -93,7 +90,7 @@ export async function POST(request: Request) {
 
     try {
       await convex.mutation(api.users.updateUser, {
-        authUserId: user.id,
+        authUserId: userId,
         data: {
           canvasTokenEncrypted: encrypted,
           canvasTokenIv: iv,
@@ -102,7 +99,7 @@ export async function POST(request: Request) {
         },
       })
     } catch (updateError) {
-      logInternalError('Canvas Connect', updateError, { userId: user.id })
+      logInternalError('Canvas Connect', updateError, { userId })
       return NextResponse.json(
         { error: 'Failed to save Canvas token' },
         { status: 500 }

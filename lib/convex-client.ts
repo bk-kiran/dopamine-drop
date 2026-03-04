@@ -12,11 +12,11 @@ export function getConvexClient() {
   return convexClient
 }
 
-// Helper to get Convex user ID from Supabase auth user ID
-export async function getConvexUserId(authUserId: string): Promise<Id<'users'>> {
+// Helper to get Convex user ID from Clerk user ID
+export async function getConvexUserId(clerkUserId: string): Promise<Id<'users'>> {
   const client = getConvexClient()
   const userId = await client.mutation(api.users.getOrCreateUser, {
-    authUserId,
+    clerkId: clerkUserId,
   })
   return userId
 }

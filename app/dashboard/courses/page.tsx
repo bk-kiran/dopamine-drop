@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { Eye, EyeOff, BookOpen, CheckCircle2, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
@@ -25,36 +26,20 @@ interface Assignment {
 }
 
 export default function CoursesPage() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
-
-  // Get Supabase user ID
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user }, error } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        redirect('/login')
-      }
-
-      if (user) {
-        setSupabaseUserId(user.id)
-      }
-    }
-    getUser()
-  }, [])
+  const { user: clerkUser } = useUser()
+  const supabaseUserId = clerkUser?.id ?? null
 
   // Get dashboard data
   const dashboardData = useQuery(
     api.users.getDashboardData,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get ALL assignments (no date filtering - courses page shows all-time stats)
   const assignments = useQuery(
     api.assignments.getAssignmentsBySupabaseId,
     supabaseUserId ? {
-      supabaseId: supabaseUserId,
+      clerkId: supabaseUserId,
       includeSubmittedSince: undefined, // No date filter - show all assignments
     } : 'skip'
   )
@@ -131,7 +116,7 @@ export default function CoursesPage() {
   const handleToggleCourse = async (canvasCourseId: string, currentlyHidden: boolean) => {
     try {
       await toggleHiddenCourse({
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
         canvasCourseId,
         hide: !currentlyHidden,
       })

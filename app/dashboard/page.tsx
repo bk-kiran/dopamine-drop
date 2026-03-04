@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '@/convex/_generated/api'
 import { DashboardClient } from './dashboard-client'
@@ -12,18 +12,15 @@ export const metadata: Metadata = {
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { userId } = await auth()
 
-  if (!user) redirect('/login')
+  if (!userId) redirect('/login')
 
   const convexUser = await convex.query(api.users.getUserBySupabaseId, {
-    supabaseId: user.id,
+    clerkId: userId,
   })
 
   if (!convexUser?.canvasTokenEncrypted) redirect('/dashboard/setup')
 
-  return <DashboardClient supabaseUserId={user.id} />
+  return <DashboardClient supabaseUserId={userId} />
 }

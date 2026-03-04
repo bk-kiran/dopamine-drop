@@ -146,7 +146,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
     try {
       const result = await manuallyCompleteAssignment({
         assignmentId: assignmentId as any, // Convex ID
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
       })
 
       // Show success toast with points awarded
@@ -168,8 +168,8 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
       }
 
       // Update daily challenge progress + check achievements (fire and forget)
-      updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
-      checkAndAwardAchievements({ supabaseId: supabaseUserId }).catch(console.error)
+      updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
+      checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
     } catch (error: any) {
       console.error('Error completing assignment:', error)
       toast({
@@ -202,7 +202,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
     try {
       const result = await unCompleteAssignment({
         assignmentId: assignmentToUntick.id as any,
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
       })
 
       // Show simple success toast
@@ -235,7 +235,7 @@ export function CourseSection({ course, assignments, supabaseUserId }: CourseSec
     try {
       const result = await toggleUrgent({
         assignmentId: assignmentId as any,
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
       })
 
       console.log('[Course Section] Toggle mutation complete:', result)

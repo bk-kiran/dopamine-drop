@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, Plus, Hash, Copy, Check, Flame, Zap, Users, LogOut, X } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
@@ -14,7 +15,8 @@ type View = 'list' | 'create' | 'join'
 const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
 export default function LeaderboardPage() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
+  const { user: clerkUser } = useUser()
+  const supabaseUserId = clerkUser?.id ?? null
   const [view, setView] = useState<View>('list')
   const [activeLeaderboardId, setActiveLeaderboardId] = useState<string | null>(null)
   const [nameInput, setNameInput] = useState('')
@@ -25,22 +27,16 @@ export default function LeaderboardPage() {
   const [newlyCreatedCode, setNewlyCreatedCode] = useState<string | null>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
-      if (user) setSupabaseUserId(user.id)
-    })
-  }, [])
-
   // Get Convex user ID for row highlighting
   const dashboardData = useQuery(
     api.users.getDashboardData,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
   const convexUserId = dashboardData?.user?._id as string | undefined
 
   const myLeaderboards = useQuery(
     api.leaderboard.getMyLeaderboards,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
   const rankings = useQuery(
     api.leaderboard.getLeaderboardRankings,
@@ -62,7 +58,7 @@ export default function LeaderboardPage() {
     if (!supabaseUserId || !nameInput.trim()) return
     setIsCreating(true)
     try {
-      const result = await createLeaderboard({ supabaseId: supabaseUserId, name: nameInput.trim() })
+      const result = await createLeaderboard({ clerkId: supabaseUserId, name: nameInput.trim() })
       setNewlyCreatedCode(result.inviteCode)
       setActiveLeaderboardId(result.leaderboardId as string)
       setNameInput('')
@@ -79,7 +75,7 @@ export default function LeaderboardPage() {
     if (!supabaseUserId || codeInput.length !== 8) return
     setIsJoining(true)
     try {
-      const result = await joinLeaderboard({ supabaseId: supabaseUserId, inviteCode: codeInput.toUpperCase() })
+      const result = await joinLeaderboard({ clerkId: supabaseUserId, inviteCode: codeInput.toUpperCase() })
       if (result.alreadyMember) {
         toast({ title: "You're already in this leaderboard", duration: 3000 })
       } else {
@@ -98,7 +94,7 @@ export default function LeaderboardPage() {
   const handleLeave = async (leaderboardId: string) => {
     if (!supabaseUserId) return
     try {
-      await leaveLeaderboard({ supabaseId: supabaseUserId, leaderboardId: leaderboardId as any })
+      await leaveLeaderboard({ clerkId: supabaseUserId, leaderboardId: leaderboardId as any })
       if (activeLeaderboardId === leaderboardId) setActiveLeaderboardId(null)
       setNewlyCreatedCode(null)
       toast({ title: 'Left leaderboard', duration: 3000 })

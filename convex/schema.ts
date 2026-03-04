@@ -2,10 +2,18 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 export default defineSchema({
-  // Users table - maps to Supabase auth users
+  // Users table - maps to Clerk auth users
   users: defineTable({
-    // Auth user ID from Supabase (not auto-generated)
-    authUserId: v.string(),
+    // Clerk user ID (e.g. user_2abc...) — optional during migration from authUserId
+    clerkId: v.optional(v.string()),
+    // Legacy field from Supabase era — kept for migration compatibility, will be removed
+    authUserId: v.optional(v.string()),
+
+    // Clerk profile fields (synced via webhook)
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
 
     // Canvas integration
     canvasTokenEncrypted: v.optional(v.string()),
@@ -24,7 +32,7 @@ export default defineSchema({
     xpMultiplierDay: v.optional(v.string()), // '0'=Sunday … '6'=Saturday; all points on this day are doubled
     dashboardSectionOrder: v.optional(v.array(v.string())), // e.g. ['course_123', 'my_tasks', 'course_456']
   })
-    .index('by_auth_user_id', ['authUserId'])
+    .index('by_clerk_id', ['clerkId'])
     .index('by_canvas_user_id', ['canvasUserId']),
 
   // Courses table

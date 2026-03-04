@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, Moon, Zap, Shield, Flame, Trophy, Crown,
@@ -44,7 +44,7 @@ function AchievementToastInner({ supabaseUserId }: { supabaseUserId: string }) {
   const [exiting, setExiting] = useState(false)
 
   const unseenAchievements = useQuery(api.achievements.getUnseenAchievements, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
   const markSeen = useMutation(api.achievements.markAchievementsSeen)
 
@@ -84,7 +84,7 @@ function AchievementToastInner({ supabaseUserId }: { supabaseUserId: string }) {
   // Mark seen once everything is dismissed
   useEffect(() => {
     if (!current && queue.length === 0 && unseenAchievements && unseenAchievements.length > 0) {
-      markSeen({ supabaseId: supabaseUserId }).catch(console.error)
+      markSeen({ clerkId: supabaseUserId }).catch(console.error)
     }
   }, [current, queue, unseenAchievements, supabaseUserId, markSeen])
 
@@ -152,18 +152,10 @@ function AchievementToastInner({ supabaseUserId }: { supabaseUserId: string }) {
   )
 }
 
-// Self-contained wrapper — fetches its own Supabase user ID
+// Self-contained wrapper — fetches its own Clerk user ID
 export function AchievementToast() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) setSupabaseUserId(user.id)
-    }
-    getUser()
-  }, [])
+  const { user: clerkUser } = useUser()
+  const supabaseUserId = clerkUser?.id ?? null
 
   if (!supabaseUserId) return null
   return <AchievementToastInner supabaseUserId={supabaseUserId} />

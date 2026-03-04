@@ -101,17 +101,17 @@ export const getAssignmentsWithCourseInfo = query({
   },
 })
 
-// Real-time query for dashboard (using supabaseId parameter naming)
+// Real-time query for dashboard (using clerkId parameter naming)
 export const getAssignmentsBySupabaseId = query({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     includeSubmittedSince: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Find user by Supabase ID
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return []
@@ -223,13 +223,13 @@ export const upsertAssignment = mutation({
 export const unCompleteAssignment = mutation({
   args: {
     assignmentId: v.id('assignments'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
     // Get the user
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -284,13 +284,13 @@ export const unCompleteAssignment = mutation({
 export const manuallyCompleteAssignment = mutation({
   args: {
     assignmentId: v.id('assignments'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
     // Get the user
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -456,13 +456,13 @@ export const manuallyCompleteAssignment = mutation({
 // Get ALL assignments with course info for schedule (no filtering by status)
 export const getAssignmentsForSchedule = query({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
     // Find user by Supabase ID
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return []
@@ -506,13 +506,13 @@ export const getAssignmentsForSchedule = query({
 export const toggleUrgent = mutation({
   args: {
     assignmentId: v.id('assignments'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
     // Get the user
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -545,13 +545,13 @@ export const toggleUrgent = mutation({
 // Get all urgent assignments for a user (sorted by urgentOrder)
 export const getUrgentAssignments = query({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
     // Find user by Supabase ID
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return []
@@ -598,14 +598,14 @@ export const getUrgentAssignments = query({
 // Reorder urgent assignments (for drag-drop)
 export const reorderUrgentAssignments = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     assignmentIds: v.array(v.id('assignments')), // Ordered array of assignment IDs
   },
   handler: async (ctx, args) => {
     // Get the user
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -628,13 +628,13 @@ export const reorderUrgentAssignments = mutation({
 export const updateAssignmentNotes = mutation({
   args: {
     assignmentId: v.id('assignments'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
     notes: v.string(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
     if (!user) throw new Error('User not found')
 

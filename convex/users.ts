@@ -1,19 +1,19 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-// Get or create user by auth ID
+// Get or create user by Clerk ID
 export const getOrCreateUser = mutation({
-  args: { authUserId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.authUserId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (existing) return existing._id
 
     return await ctx.db.insert('users', {
-      authUserId: args.authUserId,
+      clerkId: args.clerkId,
       totalPoints: 0,
       streakCount: 0,
       longestStreak: 0,
@@ -21,16 +21,17 @@ export const getOrCreateUser = mutation({
   },
 })
 
-// Get user by auth ID
+// Get user by Clerk ID
 export const getUser = query({
   args: { authUserId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.authUserId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.authUserId))
       .first()
   },
 })
+
 
 // Update user
 export const updateUser = mutation({
@@ -52,7 +53,7 @@ export const updateUser = mutation({
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.authUserId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.authUserId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -65,13 +66,13 @@ export const updateUser = mutation({
 // Update user avatar
 export const updateAvatar = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -86,11 +87,11 @@ export const updateAvatar = mutation({
 
 // Get avatar URL
 export const getAvatarUrl = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user?.avatarStorageId) return null
@@ -102,13 +103,13 @@ export const getAvatarUrl = query({
 // Update display name
 export const updateDisplayName = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     displayName: v.string(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -123,11 +124,11 @@ export const updateDisplayName = mutation({
 
 // Get profile stats
 export const getProfileStats = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) {
@@ -162,7 +163,7 @@ export const getUserStats = query({
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.authUserId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.authUserId))
       .first()
 
     return {
@@ -174,23 +175,23 @@ export const getUserStats = query({
   },
 })
 
-// Real-time queries for dashboard (using supabaseId parameter naming)
+// Real-time queries for dashboard
 export const getUserBySupabaseId = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
   },
 })
 
 export const getVisiblePoints = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     return {
@@ -203,14 +204,14 @@ export const getVisiblePoints = query({
 // Toggle hidden course
 export const toggleHiddenCourse = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     canvasCourseId: v.string(),
     hide: v.boolean(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -235,11 +236,11 @@ export const toggleHiddenCourse = mutation({
 
 // Show all courses (clear hidden list)
 export const showAllCourses = mutation({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -251,12 +252,12 @@ export const showAllCourses = mutation({
 
 // Consolidated dashboard data query (reduces 3 separate queries to 1)
 export const getDashboardData = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     // Get user
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) {
@@ -299,11 +300,11 @@ const LEVELS = [
 
 // Get user level and progress
 export const getLevel = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     const currentPoints = user?.totalPoints || 0
@@ -342,13 +343,13 @@ export const getLevel = query({
 // Set the user's weekly 2x XP multiplier day
 export const setXpMultiplierDay = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     day: v.optional(v.string()), // '0'–'6' (Sun–Sat), or undefined to clear
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -360,11 +361,11 @@ export const setXpMultiplierDay = mutation({
 
 // Get dashboard section order
 export const getDashboardSectionOrder = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return null
@@ -375,13 +376,13 @@ export const getDashboardSectionOrder = query({
 // Update dashboard section order
 export const updateDashboardSectionOrder = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     sectionOrder: v.array(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) throw new Error('User not found')
@@ -406,5 +407,109 @@ export const getUserByCanvasId = query({
       .query('users')
       .withIndex('by_canvas_user_id', (q) => q.eq('canvasUserId', args.canvasUserId))
       .first()
+  },
+})
+
+// ── Migration: backfill clerkId from authUserId for existing users ────────────
+// Run once from the Convex dashboard after deploying the new schema.
+// This only sets clerkId on documents that have authUserId but no clerkId.
+// After users re-login with Clerk, a new record is created with their real clerkId.
+export const migrateAuthUserIdToClerkId = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query('users').collect()
+    let migrated = 0
+    for (const user of users) {
+      if (!user.clerkId && (user as any).authUserId) {
+        await ctx.db.patch(user._id, { clerkId: (user as any).authUserId })
+        migrated++
+      }
+    }
+    return { migrated }
+  },
+})
+
+// ── Clerk Webhook Mutations ─────────────────────────────────────────────────
+
+// Called when a user is created in Clerk
+export const createFromClerk = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (existing) {
+      // User already exists (e.g. created via getOrCreateUser before webhook fired)
+      await ctx.db.patch(existing._id, {
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        imageUrl: args.imageUrl,
+      })
+      return existing._id
+    }
+
+    return await ctx.db.insert('users', {
+      clerkId: args.clerkId,
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      imageUrl: args.imageUrl,
+      totalPoints: 0,
+      streakCount: 0,
+      longestStreak: 0,
+    })
+  },
+})
+
+// Called when a user is updated in Clerk
+export const updateFromClerk = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) return null
+
+    await ctx.db.patch(user._id, {
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      imageUrl: args.imageUrl,
+    })
+
+    return user._id
+  },
+})
+
+// Called when a user is deleted in Clerk
+export const deleteFromClerk = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) return null
+
+    await ctx.db.delete(user._id)
+    return user._id
   },
 })
