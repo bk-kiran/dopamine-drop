@@ -18,45 +18,77 @@ import {
 } from 'lucide-react'
 import { useRef } from 'react'
 import Link from 'next/link'
+import { BentoCard, BentoGrid } from '@/components/ui/bento-grid'
+import { MiniNavbar } from '@/components/ui/mini-navbar'
 
 // ─── Feature data ──────────────────────────────────────────────────────────────
 
 const features = [
   {
-    icon: Trophy,
-    title: 'Points & Levels',
-    description:
-      'Earn XP for every assignment submitted on time. Watch your level grow as you master your curriculum.',
+    Icon: Target,
+    name: "Automatic Canvas Sync",
+    description: "Connect once, never miss an assignment. Real-time sync with all your courses.",
+    href: "#canvas-sync",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-purple-600/10" />
+    ),
+    className: "lg:row-start-1 lg:row-end-4 lg:col-start-2 lg:col-end-3",
   },
   {
-    icon: Flame,
-    title: 'Streak Tracking',
-    description:
-      "Maintain your momentum with daily study streaks. Don't let the fire go out!",
+    Icon: Flame,
+    name: "Streak Tracking",
+    description: "Maintain your momentum with daily study streaks. Don't let the fire go out!",
+    href: "#streaks",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-red-600/10" />
+    ),
+    className: "lg:col-start-1 lg:col-end-2 lg:row-start-1 lg:row-end-3",
   },
   {
-    icon: Target,
-    title: 'Daily Challenges',
-    description:
-      'Complete special tasks to boost your weekly score. New objectives refreshed every 24 hours.',
+    Icon: Trophy,
+    name: "Daily Challenges",
+    description: "Complete special tasks to boost your weekly score. New objectives refreshed every 24 hours.",
+    href: "#challenges",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-transparent to-amber-600/10" />
+    ),
+    className: "lg:col-start-1 lg:col-end-2 lg:row-start-3 lg:row-end-4",
   },
   {
-    icon: Award,
-    title: 'Achievement Badges',
-    description:
-      'Collect unique digital rewards for your milestones. Display them on your profile with pride.',
+    Icon: Award,
+    name: "Achievement Badges",
+    description: "Collect unique digital rewards for your milestones. Display them on your profile with pride.",
+    href: "#achievements",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-indigo-600/10" />
+    ),
+    className: "lg:col-start-3 lg:col-end-3 lg:row-start-1 lg:row-end-2",
   },
   {
-    icon: Users,
-    title: 'Private Leaderboards',
-    description:
-      'Compete with friends in secure, private study groups. See who truly reigns supreme.',
+    Icon: Users,
+    name: "Private Leaderboards",
+    description: "Compete with friends in secure, private study groups. See who truly reigns supreme.",
+    href: "#leaderboards",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-emerald-600/10" />
+    ),
+    className: "lg:col-start-3 lg:col-end-3 lg:row-start-2 lg:row-end-4",
   },
   {
-    icon: BarChart3,
-    title: 'Grade Analytics',
-    description:
-      'Visualize your progress with deep data insights. Prediction engines for final grade success.',
+    Icon: BarChart3,
+    name: "Grade Analytics",
+    description: "Visualize your progress with deep data insights. Prediction engines for final grade success.",
+    href: "#analytics",
+    cta: "Learn more",
+    background: (
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 via-transparent to-rose-600/10" />
+    ),
+    className: "lg:col-start-2 lg:col-end-3 lg:row-start-4 lg:row-end-5",
   },
 ]
 
@@ -205,72 +237,11 @@ export default function LandingPage() {
         }}
       />
 
-      {/* ── NAVBAR ───────────────────────────────────────────────────────────── */}
-      <header
-        className="fixed top-0 left-0 right-0 z-50 border-b border-white/10"
-        style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(16px)' }}
-      >
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #9333ea, #7c3aed)' }}
-            >
-              <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-                <path d="M12 2C12 2 5 10.5 5 15.5C5 19.09 8.13 22 12 22C15.87 22 19 19.09 19 15.5C19 10.5 12 2 12 2Z" />
-              </svg>
-            </div>
-            <span
-              className="text-lg font-black lowercase bg-clip-text text-transparent"
-              style={{ backgroundImage: 'linear-gradient(to right, #e9d5ff, #c084fc)' }}
-            >
-              dopamine drop
-            </span>
-          </Link>
-
-          {/* Center nav — desktop only */}
-          <nav className="hidden md:flex items-center gap-8">
-            {[
-              { label: 'Dashboard', href: '/dashboard' },
-              { label: 'Features', href: '#features' },
-              { label: 'About', href: '#about' },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="text-sm text-white/50 hover:text-white transition-colors duration-200"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Right CTAs */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="hidden sm:inline-flex items-center px-4 py-2 rounded-full text-sm text-white/70 border border-white/15 hover:border-white/30 hover:text-white transition-all duration-200"
-              style={{ backdropFilter: 'blur(8px)' }}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white transition-all duration-200 hover:scale-105"
-              style={{
-                background: 'linear-gradient(to right, #7c3aed, #a855f7)',
-                boxShadow: '0 0 20px rgba(168,85,247,0.3)',
-              }}
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* ── MINI NAVBAR (FLOATING) ────────────────────────────────────────────── */}
+      <MiniNavbar />
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
-      <section className="relative pt-40 pb-24 px-6 text-center">
+      <section className="relative pt-32 pb-24 px-6 text-center">
         <div className="max-w-4xl mx-auto">
           {/* Badge */}
           <motion.div
@@ -393,9 +364,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FEATURES ─────────────────────────────────────────────────────────── */}
+      {/* ── FEATURES (BENTO GRID) ─────────────────────────────────────────────── */}
       <section id="features" className="relative py-24 px-6" ref={featuresRef}>
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Section header */}
           <div className="text-center mb-14">
             <motion.h2
@@ -417,40 +388,12 @@ export default function LandingPage() {
             </motion.p>
           </div>
 
-          {/* Feature cards grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((feature, i) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={featuresInView ? { opacity: 1, y: 0 } : {}}
-                  transition={{ duration: 0.5, delay: 0.2 + i * 0.1 }}
-                  className="rounded-2xl p-6 border border-white/10 hover:border-purple-500/30 transition-all duration-300"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    backdropFilter: 'blur(8px)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.07)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                  }}
-                >
-                  <div
-                    className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-4"
-                    style={{ boxShadow: '0 0 16px rgba(168,85,247,0.15)' }}
-                  >
-                    <Icon className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <h3 className="text-white font-bold text-lg mb-2">{feature.title}</h3>
-                  <p className="text-white/40 text-sm leading-relaxed">{feature.description}</p>
-                </motion.div>
-              )
-            })}
-          </div>
+          {/* Bento Grid */}
+          <BentoGrid className="lg:grid-rows-4 auto-rows-[18rem]">
+            {features.map((feature) => (
+              <BentoCard key={feature.name} {...feature} />
+            ))}
+          </BentoGrid>
         </div>
       </section>
 

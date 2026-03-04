@@ -158,3 +158,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Sidebar scrollbar styling */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-neutral-700 rounded-full;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  @apply bg-purple-400 dark:bg-purple-500;
+}
