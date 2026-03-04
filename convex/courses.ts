@@ -25,14 +25,14 @@ export const getAllCourses = query({
   },
 })
 
-// Real-time query for dashboard (using supabaseId parameter naming)
+// Real-time query for dashboard
 export const getCoursesBySupabaseId = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    // Find user by Supabase ID
+    // Find user by Clerk ID
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
 
     if (!user) return []
@@ -89,11 +89,11 @@ export const upsertCourse = mutation({
 
 // Get all assignments for a course (for grades page)
 export const getAssignmentsForGrades = query({
-  args: { supabaseId: v.string(), canvasCourseId: v.string() },
+  args: { clerkId: v.string(), canvasCourseId: v.string() },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', args.supabaseId))
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
       .first()
     if (!user) return []
 

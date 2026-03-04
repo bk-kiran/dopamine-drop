@@ -1,11 +1,11 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-// Helper: get user by Supabase ID
-async function getUserBySupabaseId(ctx: any, supabaseId: string) {
+// Helper: get user by Clerk ID
+async function getUserByClerkId(ctx: any, clerkId: string) {
   return await ctx.db
     .query('users')
-    .withIndex('by_auth_user_id', (q: any) => q.eq('authUserId', supabaseId))
+    .withIndex('by_clerk_id', (q: any) => q.eq('clerkId', clerkId))
     .first()
 }
 
@@ -87,9 +87,9 @@ export const seedChallengePool = mutation({
 // ─── Generate today's challenges for a user ─────────────────────────────────
 
 export const generateDailyChallenges = mutation({
-  args: { supabaseId: v.string(), dateString: v.optional(v.string()) },
+  args: { clerkId: v.string(), dateString: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return
 
     const today = args.dateString || new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
@@ -149,9 +149,9 @@ export const generateDailyChallenges = mutation({
 // ─── Query today's challenges with joined pool data ──────────────────────────
 
 export const getDailyChallenges = query({
-  args: { supabaseId: v.string(), dateString: v.optional(v.string()) },
+  args: { clerkId: v.string(), dateString: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return []
 
     const today = args.dateString || new Date().toISOString().split('T')[0]
@@ -189,9 +189,9 @@ export const getDailyChallenges = query({
 // ─── Recalculate progress for today's challenges ─────────────────────────────
 
 export const updateChallengeProgress = mutation({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return
 
     const today = new Date().toISOString().split('T')[0]

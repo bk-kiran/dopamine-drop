@@ -1,11 +1,11 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-// Helper: get user by supabase ID
-async function getUserBySupabaseId(ctx: any, supabaseId: string) {
+// Helper: get user by Clerk ID
+async function getUserByClerkId(ctx: any, clerkId: string) {
   return await ctx.db
     .query('users')
-    .withIndex('by_auth_user_id', (q: any) => q.eq('authUserId', supabaseId))
+    .withIndex('by_clerk_id', (q: any) => q.eq('clerkId', clerkId))
     .first()
 }
 
@@ -86,9 +86,9 @@ async function updateStreak(ctx: any, user: any): Promise<{ newStreak: number; s
 
 // Get all custom tasks for a user
 export const getCustomTasks = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return []
 
     const tasks = await ctx.db
@@ -120,9 +120,9 @@ export const getCustomTasks = query({
 
 // Get urgent custom tasks
 export const getUrgentCustomTasks = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return []
 
     const tasks = await ctx.db
@@ -144,7 +144,7 @@ export const getUrgentCustomTasks = query({
 // Create a new custom task
 export const createCustomTask = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
     category: v.union(
@@ -157,7 +157,7 @@ export const createCustomTask = mutation({
     dueAt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const taskId = await ctx.db.insert('customTasks', {
@@ -178,7 +178,7 @@ export const createCustomTask = mutation({
 export const updateCustomTask = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     category: v.optional(
@@ -193,7 +193,7 @@ export const updateCustomTask = mutation({
     dueAt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -215,10 +215,10 @@ export const updateCustomTask = mutation({
 export const completeCustomTask = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -270,10 +270,10 @@ export const completeCustomTask = mutation({
 export const uncompleteCustomTask = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -309,10 +309,10 @@ export const uncompleteCustomTask = mutation({
 export const deleteCustomTask = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -345,11 +345,11 @@ export const deleteCustomTask = mutation({
 export const updateCustomTaskNotes = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -364,10 +364,10 @@ export const updateCustomTaskNotes = mutation({
 export const toggleUrgentCustomTask = mutation({
   args: {
     taskId: v.id('customTasks'),
-    supabaseId: v.string(),
+    clerkId: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const task = await ctx.db.get(args.taskId)
@@ -387,11 +387,11 @@ export const toggleUrgentCustomTask = mutation({
 // Reorder urgent custom tasks (for drag-drop)
 export const reorderUrgentCustomTasks = mutation({
   args: {
-    supabaseId: v.string(),
+    clerkId: v.string(),
     customTaskIds: v.array(v.id('customTasks')),
   },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     // Update urgentOrder for each custom task based on position in array

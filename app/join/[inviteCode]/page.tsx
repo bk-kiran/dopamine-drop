@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { motion } from 'framer-motion'
 import { Trophy, Users, Zap, ArrowRight, Loader2, UserPlus } from 'lucide-react'
 
@@ -12,18 +12,12 @@ export default function JoinLeaderboardPage() {
   const params = useParams()
   const router = useRouter()
   const inviteCode = (params.inviteCode as string).toUpperCase()
+  const { user: clerkUser, isLoaded } = useUser()
+  const supabaseUserId = isLoaded ? (clerkUser?.id ?? null) : undefined
 
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null | undefined>(undefined)
   const [isJoining, setIsJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [hasAutoJoined, setHasAutoJoined] = useState(false)
-
-  // Check Supabase auth
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
-      setSupabaseUserId(user?.id ?? null)
-    })
-  }, [])
 
   // Fetch leaderboard info (public — no auth needed)
   const leaderboard = useQuery(api.leaderboard.getLeaderboardByInviteCode, { inviteCode })
@@ -34,7 +28,7 @@ export default function JoinLeaderboardPage() {
     if (supabaseUserId && leaderboard && !hasAutoJoined) {
       setHasAutoJoined(true)
       setIsJoining(true)
-      joinLeaderboard({ supabaseId: supabaseUserId, inviteCode })
+      joinLeaderboard({ clerkId: supabaseUserId, inviteCode })
         .then(() => {
           router.push('/dashboard/leaderboard')
         })

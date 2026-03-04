@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { redirect, useRouter } from 'next/navigation'
@@ -39,8 +39,10 @@ const LEVELS = [
 ]
 
 export default function ProfilePage() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
-  const [supabaseEmail, setSupabaseEmail] = useState<string | null>(null)
+  const { user: clerkUser, isLoaded } = useUser()
+  const { signOut } = useClerk()
+  const supabaseUserId = clerkUser?.id ?? null
+  const supabaseEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
   const [isUploading, setIsUploading] = useState(false)
@@ -51,58 +53,40 @@ export default function ProfilePage() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // Get Supabase user
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user }, error } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        redirect('/login')
-      }
-
-      if (user) {
-        setSupabaseUserId(user.id)
-        setSupabaseEmail(user.email || null)
-      }
-    }
-    getUser()
-  }, [])
-
   // Get user data
   const userData = useQuery(
     api.users.getUserBySupabaseId,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get profile stats
   const profileStats = useQuery(
     api.users.getProfileStats,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get level data
   const levelData = useQuery(
     api.users.getLevel,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get user rewards
   const userRewards = useQuery(
     api.rewards.getUserRewardsBySupabaseId,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get achievements
   const userAchievements = useQuery(
     api.achievements.getUserAchievements,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Get avatar URL
   const avatarUrl = useQuery(
     api.users.getAvatarUrl,
-    supabaseUserId ? { supabaseId: supabaseUserId } : 'skip'
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
   // Mutations
@@ -132,7 +116,7 @@ export default function ProfilePage() {
 
     try {
       await updateDisplayName({
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
         displayName: editedName.trim(),
       })
       setIsEditingName(false)
@@ -149,9 +133,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-      router.push('/login')
+      await signOut({ redirectUrl: '/login' })
     } catch (error) {
       console.error('Error logging out:', error)
       setIsLoggingOut(false)
@@ -217,7 +199,7 @@ export default function ProfilePage() {
 
       // Update user avatar
       await updateAvatar({
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
         storageId,
       })
 
@@ -251,7 +233,7 @@ export default function ProfilePage() {
   const currentLevel = levelData?.currentLevel || 1
 
   // Loading state
-  if (!userData || !profileStats || !levelData || !supabaseUserId) {
+  if (!isLoaded || !userData || !profileStats || !levelData || !supabaseUserId) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
@@ -650,7 +632,7 @@ export default function ProfilePage() {
                       key={label}
                       onClick={() =>
                         setXpMultiplierDay({
-                          supabaseId: supabaseUserId!,
+                          clerkId: supabaseUserId!,
                           day: isSelected ? undefined : dayNum,
                         }).catch(console.error)
                       }

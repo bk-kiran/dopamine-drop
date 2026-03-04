@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { getConvexClient } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -8,26 +8,22 @@ import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: 'GET /api/user/hidden-courses' })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rateLimitResponse = await checkRateLimit(user.id, 'api')
+    const rateLimitResponse = await checkRateLimit(userId, 'api')
     if (rateLimitResponse) {
-      logSecurityEvent('rate_limit', { route: 'GET /api/user/hidden-courses', userId: user.id })
+      logSecurityEvent('rate_limit', { route: 'GET /api/user/hidden-courses', userId })
       return rateLimitResponse
     }
 
     const convex = getConvexClient()
     const convexUser = await convex.query(api.users.getUser, {
-      authUserId: user.id,
+      authUserId: userId,
     })
 
     return NextResponse.json({
@@ -44,20 +40,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: 'POST /api/user/hidden-courses' })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rateLimitResponse = await checkRateLimit(user.id, 'mutations')
+    const rateLimitResponse = await checkRateLimit(userId, 'mutations')
     if (rateLimitResponse) {
-      logSecurityEvent('rate_limit', { route: 'POST /api/user/hidden-courses', userId: user.id })
+      logSecurityEvent('rate_limit', { route: 'POST /api/user/hidden-courses', userId })
       return rateLimitResponse
     }
 
@@ -67,7 +59,7 @@ export async function POST(request: Request) {
     if (!validation.success) {
       logSecurityEvent('invalid_input', {
         route: 'POST /api/user/hidden-courses',
-        userId: user.id,
+        userId,
         error: validation.error,
       })
       return NextResponse.json({ error: validation.error }, { status: 400 })
@@ -76,7 +68,7 @@ export async function POST(request: Request) {
 
     const convex = getConvexClient()
     const convexUser = await convex.query(api.users.getUser, {
-      authUserId: user.id,
+      authUserId: userId,
     })
 
     let hiddenCourses: string[] = convexUser?.hiddenCourses || []
@@ -93,11 +85,11 @@ export async function POST(request: Request) {
 
     try {
       await convex.mutation(api.users.updateUser, {
-        authUserId: user.id,
+        authUserId: userId,
         data: { hiddenCourses },
       })
     } catch (updateError) {
-      logInternalError('Hidden Courses POST', updateError, { userId: user.id })
+      logInternalError('Hidden Courses POST', updateError, { userId })
       return NextResponse.json(
         { error: 'Failed to update hidden courses' },
         { status: 500 }

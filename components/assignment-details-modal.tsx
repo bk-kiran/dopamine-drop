@@ -147,9 +147,9 @@ export function AssignmentDetailsModal({
     setIsSavingNotes(true)
     try {
       if (item.type === 'assignment') {
-        await updateAssignmentNotes({ assignmentId: item.id as any, supabaseId: supabaseUserId, notes: value })
+        await updateAssignmentNotes({ assignmentId: item.id as any, clerkId: supabaseUserId, notes: value })
       } else {
-        await updateCustomTaskNotes({ taskId: item.id as any, supabaseId: supabaseUserId, notes: value })
+        await updateCustomTaskNotes({ taskId: item.id as any, clerkId: supabaseUserId, notes: value })
       }
       setNotesSaved(true)
     } catch (e) {
@@ -180,7 +180,7 @@ export function AssignmentDetailsModal({
       if (item.type === 'assignment') {
         const result = await manuallyCompleteAssignment({
           assignmentId: item.id as any,
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
         })
         toast({
           title: `+${result.pointsAwarded} pts — ${item.title}`,
@@ -193,7 +193,7 @@ export function AssignmentDetailsModal({
       } else {
         const result = await completeCustomTask({
           taskId: item.id as any,
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
         })
         toast({
           title: `+${result.pointsAwarded} pts — ${item.title}`,
@@ -220,7 +220,7 @@ export function AssignmentDetailsModal({
       if (item.type === 'assignment') {
         const result = await unCompleteAssignment({
           assignmentId: item.id as any,
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
         })
         toast({
           title: `Assignment unticked — ${result.pointsRemoved} pts removed`,
@@ -231,7 +231,7 @@ export function AssignmentDetailsModal({
       } else {
         const result = await uncompleteCustomTask({
           taskId: item.id as any,
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
         })
         toast({
           title: `Task unticked — ${result.pointsRemoved} pts removed`,
@@ -253,9 +253,9 @@ export function AssignmentDetailsModal({
     if (!item) return
     try {
       if (item.type === 'assignment') {
-        await toggleUrgent({ assignmentId: item.id as any, supabaseId: supabaseUserId })
+        await toggleUrgent({ assignmentId: item.id as any, clerkId: supabaseUserId })
       } else {
-        await toggleUrgentCustomTask({ taskId: item.id as any, supabaseId: supabaseUserId })
+        await toggleUrgentCustomTask({ taskId: item.id as any, clerkId: supabaseUserId })
       }
       toast({ description: 'Removed from urgent', duration: 2000 })
       onActionComplete?.()

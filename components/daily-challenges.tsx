@@ -54,14 +54,14 @@ export function DailyChallenges({ supabaseUserId }: DailyChallengesProps) {
   const generateDailyChallenges = useMutation(api.challenges.generateDailyChallenges)
 
   const dailyChallenges = useQuery(api.challenges.getDailyChallenges, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
     dateString: currentDate,
   })
 
   // Generate challenges on mount and when date changes
   useEffect(() => {
     generateDailyChallenges({
-      supabaseId: supabaseUserId,
+      clerkId: supabaseUserId,
       dateString: currentDate,
     }).catch(console.error)
   }, [supabaseUserId, currentDate])

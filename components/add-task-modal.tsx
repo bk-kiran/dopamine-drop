@@ -118,7 +118,7 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
       if (isEditing && editTask) {
         await updateCustomTask({
           taskId: editTask.id,
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
           title: title.trim(),
           description: description.trim() || undefined,
           category,
@@ -131,7 +131,7 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
         })
       } else {
         await createCustomTask({
-          supabaseId: supabaseUserId,
+          clerkId: supabaseUserId,
           title: title.trim(),
           description: description.trim() || undefined,
           category,

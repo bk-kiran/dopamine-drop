@@ -103,7 +103,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   // Consolidated dashboard query (reduces 3 queries to 1)
   const dashboardData = useQuery(api.users.getDashboardData, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
 
   // Get assignments - conditionally apply 7-day filter based on toggle
@@ -114,12 +114,12 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   }, [])
 
   const assignments = useQuery(api.assignments.getAssignmentsBySupabaseId, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
     includeSubmittedSince: showAllCompleted ? undefined : sevenDaysAgoISO,
   })
 
   // Custom tasks query
-  const customTasks = useQuery(api.customTasks.getCustomTasks, { supabaseId: supabaseUserId })
+  const customTasks = useQuery(api.customTasks.getCustomTasks, { clerkId: supabaseUserId })
 
   // Mutations
   const completeCustomTask = useMutation(api.customTasks.completeCustomTask)
@@ -132,7 +132,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   // DnD section ordering
   const [sectionOrder, setSectionOrder] = useState<string[]>([])
   const [isDraggingActive, setIsDraggingActive] = useState(false)
-  const savedSectionOrder = useQuery(api.users.getDashboardSectionOrder, { supabaseId: supabaseUserId })
+  const savedSectionOrder = useQuery(api.users.getDashboardSectionOrder, { clerkId: supabaseUserId })
   const updateDashboardSectionOrderMutation = useMutation(api.users.updateDashboardSectionOrder)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -264,7 +264,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const handleCompleteTask = async (taskId: string, taskTitle: string) => {
     setCompletingTaskId(taskId)
     try {
-      const result = await completeCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      const result = await completeCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
       toast({
         title: `+${result.pointsAwarded} pts — ${taskTitle}`,
         description: result.multiplierActive ? '2× XP multiplier applied!' : undefined,
@@ -282,8 +282,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         })
       }
       // Update daily challenge progress + check achievements (fire and forget)
-      updateChallengeProgress({ supabaseId: supabaseUserId }).catch(console.error)
-      checkAndAwardAchievements({ supabaseId: supabaseUserId }).catch(console.error)
+      updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
+      checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally {
@@ -296,7 +296,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     setUncompletingTaskId(taskToUntick.id)
     setTaskToUntick(null)
     try {
-      const result = await uncompleteCustomTask({ taskId: taskToUntick.id as any, supabaseId: supabaseUserId })
+      const result = await uncompleteCustomTask({ taskId: taskToUntick.id as any, clerkId: supabaseUserId })
       toast({
         title: `Task unticked — ${result.pointsRemoved} pts removed`,
         description: taskToUntick.title,
@@ -313,7 +313,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const handleDeleteTask = async (taskId: string, taskTitle: string) => {
     setDeletingTaskId(taskId)
     try {
-      await deleteCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      await deleteCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
       toast({ title: `"${taskTitle}" deleted`, duration: 3000 })
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
@@ -330,7 +330,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     })
 
     try {
-      const result = await toggleUrgentCustomTask({ taskId: taskId as any, supabaseId: supabaseUserId })
+      const result = await toggleUrgentCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
 
       console.log('[Dashboard] Toggle mutation complete:', result)
 
@@ -367,7 +367,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     setSectionOrder(newOrder)
     try {
       await updateDashboardSectionOrderMutation({
-        supabaseId: supabaseUserId,
+        clerkId: supabaseUserId,
         sectionOrder: newOrder,
       })
     } catch {

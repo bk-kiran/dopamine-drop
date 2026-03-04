@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { CanvasClient } from '@/lib/canvas-api'
 import { decryptToken } from '@/lib/encryption'
 import { updateStreak } from '@/lib/streak-tracker'
@@ -13,13 +13,9 @@ import { logSecurityEvent, logInternalError } from '@/lib/logger'
 export async function POST(request: NextRequest) {
   try {
     // Get authenticated user
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: '/api/canvas/sync' })
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
@@ -28,19 +24,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate-limit Canvas sync per user (expensive operation)
-    const rateLimitResponse = await checkRateLimit(user.id, 'sync')
+    const rateLimitResponse = await checkRateLimit(userId, 'sync')
     if (rateLimitResponse) {
-      logSecurityEvent('rate_limit', { route: '/api/canvas/sync', userId: user.id })
+      logSecurityEvent('rate_limit', { route: '/api/canvas/sync', userId })
       return rateLimitResponse
     }
 
     // Get Convex client and user ID
     const convex = getConvexClient()
-    const convexUserId = await getConvexUserId(user.id)
+    const convexUserId = await getConvexUserId(userId)
 
     // Fetch user's Canvas token and hidden courses from database
     const userData = await convex.query(api.users.getUser, {
-      authUserId: user.id,
+      authUserId: userId,
     })
 
     if (!userData) {
@@ -76,7 +72,7 @@ export async function POST(request: NextRequest) {
     const canvasClient = new CanvasClient(canvasBaseUrl, canvasToken)
     const courses = await canvasClient.getCourses()
 
-    console.log(`[Canvas Sync] Found ${courses.length} courses for user ${user.id}`)
+    console.log(`[Canvas Sync] Found ${courses.length} courses for user ${userId}`)
 
     const hiddenCourses = userData.hiddenCourses || []
     const canvasUserId = parseInt(userData.canvasUserId || '0')
@@ -208,11 +204,11 @@ export async function POST(request: NextRequest) {
             if (!isHiddenCourse) {
               try {
                 // 1. Update streak
-                await updateStreak({ authUserId: user.id })
+                await updateStreak({ authUserId: userId })
 
                 // 2. Award points
                 const { pointsAwarded, reason } = await awardPoints({
-                  authUserId: user.id,
+                  authUserId: userId,
                   convexUserId,
                   assignmentId: existingAssignment._id,
                   dueAt: assignment.due_at,
@@ -221,7 +217,7 @@ export async function POST(request: NextRequest) {
 
                 // 3. Get updated total points
                 const updatedUserStats = await convex.query(api.users.getUserStats, {
-                  authUserId: user.id,
+                  authUserId: userId,
                 })
 
                 // 4. Roll for reward

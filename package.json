@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.0.1",
+    "@clerk/themes": "^2.4.57",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -30,6 +32,7 @@
     "react-dom": "19.2.3",
     "react-image-crop": "^11.0.10",
     "sonner": "^2.0.7",
+    "svix": "^1.86.0",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.6"
   },

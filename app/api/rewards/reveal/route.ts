@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@clerk/nextjs/server'
 import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -10,22 +10,18 @@ export async function POST(request: NextRequest) {
   console.log('[Rewards Reveal] Route handler called')
 
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { userId } = await auth()
 
-    console.log('[Rewards Reveal] Auth check:', { hasUser: !!user, authError: !!authError })
+    console.log('[Rewards Reveal] Auth check:', { hasUser: !!userId })
 
-    if (authError || !user) {
+    if (!userId) {
       logSecurityEvent('unauthorized', { route: '/api/rewards/reveal' })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rateLimitResponse = await checkRateLimit(user.id, 'mutations')
+    const rateLimitResponse = await checkRateLimit(userId, 'mutations')
     if (rateLimitResponse) {
-      logSecurityEvent('rate_limit', { route: '/api/rewards/reveal', userId: user.id })
+      logSecurityEvent('rate_limit', { route: '/api/rewards/reveal', userId })
       return rateLimitResponse
     }
 
@@ -35,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (!validation.success) {
       logSecurityEvent('invalid_input', {
         route: '/api/rewards/reveal',
-        userId: user.id,
+        userId,
         error: validation.error,
       })
       return NextResponse.json({ error: validation.error }, { status: 400 })
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const convex = getConvexClient()
-      const convexUserId = await getConvexUserId(user.id)
+      const convexUserId = await getConvexUserId(userId)
 
       console.log('[Rewards Reveal] Debug:', {
         convexUserId,
@@ -60,7 +56,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     } catch (error) {
       logInternalError('Rewards Reveal', error, {
-        userId: user.id,
+        userId,
         rewardId
       })
       return NextResponse.json({ error: 'Failed to reveal reward' }, { status: 500 })

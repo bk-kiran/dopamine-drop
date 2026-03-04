@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { createClient } from '@/lib/supabase/client'
+import { useUser } from '@clerk/nextjs'
 import { Badge } from '@/components/ui/badge'
 import { Circle, GripVertical, Flame, Trophy, Zap } from 'lucide-react'
 import { LevelCard } from '@/components/level-card'
@@ -119,11 +119,11 @@ function UrgentTasksContent({ supabaseUserId }: { supabaseUserId: string }) {
 
   const urgentAssignments = useQuery(
     api.assignments.getUrgentAssignments,
-    { supabaseId: supabaseUserId }
+    { clerkId: supabaseUserId }
   )
   const urgentCustomTasks = useQuery(
     api.customTasks.getUrgentCustomTasks,
-    { supabaseId: supabaseUserId }
+    { clerkId: supabaseUserId }
   )
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
   const reorderUrgentCustomTasks = useMutation(api.customTasks.reorderUrgentCustomTasks)
@@ -162,10 +162,10 @@ function UrgentTasksContent({ supabaseUserId }: { supabaseUserId: string }) {
       const assignmentIds = reordered.filter((i) => !i.isCustomTask).map((i) => i._id)
       const customTaskIds = reordered.filter((i) => i.isCustomTask).map((i) => i._id)
       if (assignmentIds.length > 0) {
-        await reorderUrgentAssignments({ supabaseId: supabaseUserId, assignmentIds: assignmentIds as any })
+        await reorderUrgentAssignments({ clerkId: supabaseUserId, assignmentIds: assignmentIds as any })
       }
       if (customTaskIds.length > 0) {
-        await reorderUrgentCustomTasks({ supabaseId: supabaseUserId, customTaskIds: customTaskIds as any })
+        await reorderUrgentCustomTasks({ clerkId: supabaseUserId, customTaskIds: customTaskIds as any })
       }
     } catch {
       setLocalUrgentItems(mergedUrgentItems)
@@ -205,8 +205,8 @@ function UrgentTasksContent({ supabaseUserId }: { supabaseUserId: string }) {
 }
 
 function RightPanelContent({ supabaseUserId }: { supabaseUserId: string }) {
-  const urgentAssignments = useQuery(api.assignments.getUrgentAssignments, { supabaseId: supabaseUserId })
-  const urgentCustomTasks = useQuery(api.customTasks.getUrgentCustomTasks, { supabaseId: supabaseUserId })
+  const urgentAssignments = useQuery(api.assignments.getUrgentAssignments, { clerkId: supabaseUserId })
+  const urgentCustomTasks = useQuery(api.customTasks.getUrgentCustomTasks, { clerkId: supabaseUserId })
   const urgentCount = (urgentAssignments?.length || 0) + (urgentCustomTasks?.length || 0)
 
   return (
@@ -243,17 +243,9 @@ function RightPanelContent({ supabaseUserId }: { supabaseUserId: string }) {
 
 
 export function RightPanel() {
-  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
+  const { user: clerkUser } = useUser()
+  const supabaseUserId = clerkUser?.id ?? null
   const [rightOpen, setRightOpen] = useState(true)
-
-  useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) setSupabaseUserId(user.id)
-    }
-    getUser()
-  }, [])
 
   return (
     <RightSidebar open={rightOpen} setOpen={setRightOpen}>

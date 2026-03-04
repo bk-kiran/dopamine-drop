@@ -1,11 +1,11 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-// Helper: get user by Supabase ID
-async function getUserBySupabaseId(ctx: any, supabaseId: string) {
+// Helper: get user by Clerk ID
+async function getUserByClerkId(ctx: any, clerkId: string) {
   return await ctx.db
     .query('users')
-    .withIndex('by_auth_user_id', (q: any) => q.eq('authUserId', supabaseId))
+    .withIndex('by_clerk_id', (q: any) => q.eq('clerkId', clerkId))
     .first()
 }
 
@@ -135,9 +135,9 @@ export const seedAchievements = mutation({
 // ─── Check and award achievements ────────────────────────────────────────────
 
 export const checkAndAwardAchievements = mutation({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return { newAchievements: [] }
 
     // Already-unlocked achievement IDs (keyed by achievementId string)
@@ -295,9 +295,9 @@ export const checkAndAwardAchievements = mutation({
 // ─── Get unseen achievements ──────────────────────────────────────────────────
 
 export const getUnseenAchievements = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return []
 
     const unseen = await ctx.db
@@ -325,9 +325,9 @@ export const getUnseenAchievements = query({
 // ─── Mark achievements as seen ───────────────────────────────────────────────
 
 export const markAchievementsSeen = mutation({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return
 
     const unseen = await ctx.db
@@ -346,9 +346,9 @@ export const markAchievementsSeen = mutation({
 // ─── Get all user achievements (for profile page) ─────────────────────────────
 
 export const getUserAchievements = query({
-  args: { supabaseId: v.string() },
+  args: { clerkId: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserBySupabaseId(ctx, args.supabaseId)
+    const user = await getUserByClerkId(ctx, args.clerkId)
     if (!user) return { unlocked: [], allAchievements: [] }
 
     const allAchievements = await ctx.db.query('achievements').collect()

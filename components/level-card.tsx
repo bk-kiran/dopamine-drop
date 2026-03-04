@@ -11,7 +11,7 @@ interface LevelCardProps {
 
 export function LevelCard({ supabaseUserId }: LevelCardProps) {
   const levelData = useQuery(api.users.getLevel, {
-    supabaseId: supabaseUserId,
+    clerkId: supabaseUserId,
   })
 
   if (!levelData) {
