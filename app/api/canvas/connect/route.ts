@@ -70,6 +70,27 @@ export async function POST(request: Request) {
     }
 
     const convex = getConvexClient()
+
+    // Check if this Canvas account is already linked to a different dopamine drop account
+    const canvasUserIdStr = canvasUser.id.toString()
+    const existingOwner = await convex.query(api.users.getUserByCanvasId, {
+      canvasUserId: canvasUserIdStr,
+    })
+    if (existingOwner && existingOwner.authUserId !== user.id) {
+      logSecurityEvent('duplicate_canvas_account', {
+        route: '/api/canvas/connect',
+        ip,
+        canvasUserId: canvasUserIdStr,
+      })
+      return NextResponse.json(
+        {
+          error:
+            'This Canvas account is already linked to another dopamine drop account. Each Canvas account can only be linked once.',
+        },
+        { status: 409 }
+      )
+    }
+
     try {
       await convex.mutation(api.users.updateUser, {
         authUserId: user.id,

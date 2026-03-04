@@ -23,7 +23,9 @@ export default defineSchema({
     streakShields: v.optional(v.float64()), // 0–3, protect streak for 1 missed day each
     xpMultiplierDay: v.optional(v.string()), // '0'=Sunday … '6'=Saturday; all points on this day are doubled
     dashboardSectionOrder: v.optional(v.array(v.string())), // e.g. ['course_123', 'my_tasks', 'course_456']
-  }).index('by_auth_user_id', ['authUserId']),
+  })
+    .index('by_auth_user_id', ['authUserId'])
+    .index('by_canvas_user_id', ['canvasUserId']),
 
   // Courses table
   courses: defineTable({

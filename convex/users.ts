@@ -399,16 +399,12 @@ export const updateDashboardSectionOrder = mutation({
 // window.ENV.current_user.id, then the sidebar queries Convex with it to find
 // the matching dopamine drop account (populated during Canvas token connect).
 //
-// NOTE: This performs a full table scan because canvasUserId has no index.
-// For larger deployments, add .index('by_canvas_user_id', ['canvasUserId'])
-// to the users table in schema.ts and switch to .withIndex() here.
 export const getUserByCanvasId = query({
   args: { canvasUserId: v.string() },
   handler: async (ctx, args) => {
-    const user = await ctx.db
+    return await ctx.db
       .query('users')
-      .filter((q) => q.eq(q.field('canvasUserId'), args.canvasUserId))
+      .withIndex('by_canvas_user_id', (q) => q.eq('canvasUserId', args.canvasUserId))
       .first()
-    return user
   },
 })
