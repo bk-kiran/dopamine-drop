@@ -92,18 +92,18 @@ dopamine drop reimagines the traditional assignment tracker by applying game mec
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | Next.js 16 (App Router, Server Components) |
-| **Language** | TypeScript (strict mode) |
-| **Database** | Convex (serverless, real-time, WebSocket) |
-| **Auth** | Supabase Auth (sessions, OAuth) |
-| **Styling** | Tailwind CSS v4 + Framer Motion |
-| **Validation** | Zod (runtime schema validation) |
-| **Rate Limiting** | Upstash Redis (sliding window) |
-| **Canvas Integration** | Canvas LMS REST API |
-| **Encryption** | Node.js `crypto` — AES-256-GCM |
-| **Hosting** | Vercel (edge CDN, auto-deploy) |
+| Layer                  | Technology                                 |
+| ---------------------- | ------------------------------------------ |
+| **Framework**          | Next.js 16 (App Router, Server Components) |
+| **Language**           | TypeScript (strict mode)                   |
+| **Database**           | Convex (serverless, real-time, WebSocket)  |
+| **Auth**               | Supabase Auth (sessions, OAuth)            |
+| **Styling**            | Tailwind CSS v4 + Framer Motion            |
+| **Validation**         | Zod (runtime schema validation)            |
+| **Rate Limiting**      | Upstash Redis (sliding window)             |
+| **Canvas Integration** | Canvas LMS REST API                        |
+| **Encryption**         | Node.js `crypto` — AES-256-GCM             |
+| **Hosting**            | Vercel (edge CDN, auto-deploy)             |
 
 ---
 
@@ -140,13 +140,13 @@ cp .env.local.example .env.local
 
 Required services:
 
-| Service | Purpose | Link |
-|---------|---------|------|
-| Supabase | Authentication | [supabase.com](https://supabase.com) |
-| Convex | Real-time database | [convex.dev](https://convex.dev) |
-| Upstash | Rate limiting (optional) | [upstash.com](https://upstash.com) |
+| Service  | Purpose                  | Link                                 |
+| -------- | ------------------------ | ------------------------------------ |
+| Supabase | Authentication           | [supabase.com](https://supabase.com) |
+| Convex   | Real-time database       | [convex.dev](https://convex.dev)     |
+| Upstash  | Rate limiting (optional) | [upstash.com](https://upstash.com)   |
 
-**4. Start Convex dev server** *(separate terminal)*
+**4. Start Convex dev server** _(separate terminal)_
 
 ```bash
 npx convex dev
@@ -164,22 +164,34 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## 📸 Screenshots
 
-### Dashboard
-*Real-time assignment tracking with gamification stats*
+### Landing Page
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Landing Page](docs/screenshots/landing-page.png)
+
+### Dashboard
+
+_Real-time assignment tracking with gamification stats_
+
+![Dashboard](docs/screenshots/dashboard-1.png)
+![Dashboard](docs/screenshots/dashboard-2.png)
 
 ### Grade Analytics
-*Course-level breakdown with what-if calculator*
+
+_Course-level breakdown with what-if calculator_
 
 ![Grades](docs/screenshots/grades.png)
 
-### Leaderboard
-*Private friend competitions with live rankings*
+### Calendar
 
-![Leaderboard](docs/screenshots/leaderboard.png)
+_View Upcoming Assignments in a calendar view_
 
----
+![Calendar](docs/screenshots/schedule-calendar.png)
+
+### Profile
+
+_View Achivements, rewards and stats_
+
+## ![Profile](docs/screenshots/profile.png)
 
 ## 🎯 Key Technical Challenges Solved
 
@@ -191,9 +203,14 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ```typescript
 // Only upsert when something actually changed
-const needsUpdate = titleChanged || dueAtChanged || statusChanged
-                 || pointsChanged || descChanged || gradeChanged
-if (!needsUpdate) return  // skip — saves ~90% of writes
+const needsUpdate =
+  titleChanged ||
+  dueAtChanged ||
+  statusChanged ||
+  pointsChanged ||
+  descChanged ||
+  gradeChanged;
+if (!needsUpdate) return; // skip — saves ~90% of writes
 ```
 
 ### 2. Real-Time Sync Across Devices
@@ -216,24 +233,24 @@ if (!needsUpdate) return  // skip — saves ~90% of writes
 
 ```typescript
 // Token encrypted at rest; IV unique per user
-const { encrypted, iv } = encryptToken(token)
+const { encrypted, iv } = encryptToken(token);
 await convex.mutation(api.users.updateUser, {
-  data: { canvasTokenEncrypted: encrypted, canvasTokenIv: iv }
-})
+  data: { canvasTokenEncrypted: encrypted, canvasTokenIv: iv },
+});
 ```
 
 ---
 
 ## 🔒 Security Implementation
 
-| Control | Implementation |
-|---------|---------------|
-| Rate Limiting | Upstash Redis sliding window; 5 req/15 min on auth, 10 req/hr on sync |
-| Input Validation | Zod schemas on every API route; rejects unexpected fields |
-| Token Encryption | AES-256-GCM with per-user IVs via Node.js `crypto` |
-| Security Headers | HSTS, `X-Frame-Options`, `nosniff`, `XSS-Protection`, `Referrer-Policy` |
-| Auth | Supabase sessions via HTTP-only cookies; middleware guards `/dashboard/*` |
-| Error Handling | Generic client messages; full stack trace logged server-side only |
+| Control          | Implementation                                                            |
+| ---------------- | ------------------------------------------------------------------------- |
+| Rate Limiting    | Upstash Redis sliding window; 5 req/15 min on auth, 10 req/hr on sync     |
+| Input Validation | Zod schemas on every API route; rejects unexpected fields                 |
+| Token Encryption | AES-256-GCM with per-user IVs via Node.js `crypto`                        |
+| Security Headers | HSTS, `X-Frame-Options`, `nosniff`, `XSS-Protection`, `Referrer-Policy`   |
+| Auth             | Supabase sessions via HTTP-only cookies; middleware guards `/dashboard/*` |
+| Error Handling   | Generic client messages; full stack trace logged server-side only         |
 
 ---
 
@@ -291,26 +308,31 @@ npx convex deploy
 ## 👨‍💻 Technical Highlights for Recruiters
 
 ### Full-Stack Engineering
+
 - Built production-ready Next.js 16 app with App Router, Server Components, and API routes
 - Designed real-time WebSocket architecture with Convex for sub-100 ms data propagation
 - Integrated Canvas LMS REST API with OAuth-style token auth, encrypted storage, and rate limiting
 
 ### System Design
+
 - Architected hybrid auth system (Supabase + Convex) balancing security and developer experience
 - Implemented distributed rate limiting with Upstash Redis across edge functions
 - Designed scalable gamification engine processing thousands of events/day within free-tier limits
 
 ### Security Engineering
+
 - Implemented OWASP Top 10 protections (XSS, injection, sensitive data exposure)
 - Built AES-256-GCM encryption system for sensitive tokens with environment-key rotation
 - Applied defense-in-depth: rate limiting → input validation → security headers → CSP
 
 ### Performance Optimization
+
 - Reduced Convex function calls by 85% via diff-based upserts and consolidated queries
 - Eliminated CDN dependencies in Chrome extension; bundled assets satisfy Canvas CSP
 - Optimized database queries with compound indexes (sub-10 ms p95 latency)
 
 ### Product Thinking
+
 - Designed zero-onboarding UX: Canvas token → gamified dashboard in under 60 seconds
 - Built four-state auth detection in the Chrome extension for graceful UX in every scenario
 - Iterated on points multipliers and level thresholds to maximize engagement without frustration
