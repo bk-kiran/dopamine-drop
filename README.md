@@ -9,7 +9,7 @@ A full-stack gamified academic productivity platform that syncs with Canvas LMS 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Convex](https://img.shields.io/badge/Convex-Real--Time-EF4444?style=flat-square)](https://convex.dev/)
-[![Vercel](https://img.shields.io/badge/Deployed-Vercel-black?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com/)
+[![Vercel](https://img.shields.io/badge/Deployment-Coming%20Soon-gray?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 [Live Demo](#) &nbsp;·&nbsp; [Architecture](#️-architecture) &nbsp;·&nbsp; [Tech Stack](#️-tech-stack)
@@ -67,14 +67,14 @@ dopamine drop reimagines the traditional assignment tracker by applying game mec
        │                     │
        ▼                     ▼
 ┌─────────────┐      ┌──────────────┐
-│  Supabase   │      │   Upstash    │
+│    Clerk    │      │   Upstash    │
 │    Auth     │      │ Rate Limiter │
 └─────────────┘      └──────────────┘
 ```
 
 **Data Flow:**
 
-1. User authenticates via Supabase Auth (email/password + OAuth)
+1. User authenticates via Clerk (email/password + Google OAuth)
 2. Canvas token encrypted with AES-256-GCM, stored in Convex
 3. Hourly sync fetches assignments via Canvas API, stores in Convex
 4. Gamification mutations calculate points, update user stats
@@ -97,7 +97,7 @@ dopamine drop reimagines the traditional assignment tracker by applying game mec
 | **Framework**          | Next.js 16 (App Router, Server Components) |
 | **Language**           | TypeScript (strict mode)                   |
 | **Database**           | Convex (serverless, real-time, WebSocket)  |
-| **Auth**               | Supabase Auth (sessions, OAuth)            |
+| **Auth**               | Clerk (sessions, OAuth)                    |
 | **Styling**            | Tailwind CSS v4 + Framer Motion            |
 | **Validation**         | Zod (runtime schema validation)            |
 | **Rate Limiting**      | Upstash Redis (sliding window)             |
@@ -140,11 +140,11 @@ cp .env.local.example .env.local
 
 Required services:
 
-| Service  | Purpose                  | Link                                 |
-| -------- | ------------------------ | ------------------------------------ |
-| Supabase | Authentication           | [supabase.com](https://supabase.com) |
-| Convex   | Real-time database       | [convex.dev](https://convex.dev)     |
-| Upstash  | Rate limiting (optional) | [upstash.com](https://upstash.com)   |
+| Service | Purpose                  | Link                               |
+| ------- | ------------------------ | ---------------------------------- |
+| Clerk   | Authentication           | [clerk.com]                        |
+| Convex  | Real-time database       | [convex.dev](https://convex.dev)   |
+| Upstash | Rate limiting (optional) | [upstash.com](https://upstash.com) |
 
 **4. Start Convex dev server** _(separate terminal)_
 
@@ -243,14 +243,14 @@ await convex.mutation(api.users.updateUser, {
 
 ## 🔒 Security Implementation
 
-| Control          | Implementation                                                            |
-| ---------------- | ------------------------------------------------------------------------- |
-| Rate Limiting    | Upstash Redis sliding window; 5 req/15 min on auth, 10 req/hr on sync     |
-| Input Validation | Zod schemas on every API route; rejects unexpected fields                 |
-| Token Encryption | AES-256-GCM with per-user IVs via Node.js `crypto`                        |
-| Security Headers | HSTS, `X-Frame-Options`, `nosniff`, `XSS-Protection`, `Referrer-Policy`   |
-| Auth             | Supabase sessions via HTTP-only cookies; middleware guards `/dashboard/*` |
-| Error Handling   | Generic client messages; full stack trace logged server-side only         |
+| Control          | Implementation                                                          |
+| ---------------- | ----------------------------------------------------------------------- |
+| Rate Limiting    | Upstash Redis sliding window; 5 req/15 min on auth, 10 req/hr on sync   |
+| Input Validation | Zod schemas on every API route; rejects unexpected fields               |
+| Token Encryption | AES-256-GCM with per-user IVs via Node.js `crypto`                      |
+| Security Headers | HSTS, `X-Frame-Options`, `nosniff`, `XSS-Protection`, `Referrer-Policy` |
+| Auth             | Clerk sessions via HTTP-only cookies; middleware guards `/dashboard/*`  |
+| Error Handling   | Generic client messages; full stack trace logged server-side only       |
 
 ---
 
@@ -303,9 +303,7 @@ git push origin main  # triggers auto-deploy
 npx convex deploy
 ```
 
----
-
-## 👨‍💻 Technical Highlights for Recruiters
+## ⚠️ Note: Live deployment is coming soon. The app is fully functional locally and Vercel deployment is in progress as final bug fixes are completed.
 
 ### Full-Stack Engineering
 
@@ -334,7 +332,6 @@ npx convex deploy
 ### Product Thinking
 
 - Designed zero-onboarding UX: Canvas token → gamified dashboard in under 60 seconds
-- Built four-state auth detection in the Chrome extension for graceful UX in every scenario
 - Iterated on points multipliers and level thresholds to maximize engagement without frustration
 
 ---
