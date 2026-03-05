@@ -85,47 +85,48 @@ export const DesktopRightSidebar = ({
   const { open, setOpen, animate } = useRightSidebar();
 
   return (
-    // Outer wrapper: positions the toggle button without clipping it
-    <div className="relative hidden md:flex h-full shrink-0">
-      {/* Toggle button — outside motion.div so overflow:hidden doesn't clip it */}
-      <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "absolute -left-3 top-6 z-50 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-md",
-          "bg-white border border-gray-300 text-gray-700",
-          "hover:bg-purple-50 hover:border-purple-400 hover:text-purple-600",
-          "dark:bg-neutral-800 dark:border-white/10 dark:text-gray-300",
-          "dark:hover:bg-purple-900/30 dark:hover:border-purple-500 dark:hover:text-purple-400"
-        )}
-        aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-      >
-        {open ? (
-          <ChevronRight className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronLeft className="w-3.5 h-3.5" />
-        )}
-      </button>
+    <motion.div
+      className={cn(
+        "h-full hidden md:flex flex-col overflow-hidden shrink-0",
+        "bg-white border-l border-gray-200 shadow-sm",
+        "dark:bg-[#0F0A1E] dark:border-white/10 dark:shadow-none",
+        className
+      )}
+      animate={{
+        width: animate ? (open ? "350px" : "60px") : "350px",
+      }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      {...props}
+    >
+      {/* Toggle button — inside sidebar at the top, above icons */}
+      <div className={cn(
+        "flex shrink-0 px-4 pt-4 pb-3 border-b border-gray-200 dark:border-white/10",
+        open ? "justify-end" : "justify-center"
+      )}>
+        <button
+          onClick={() => setOpen(!open)}
+          className={cn(
+            "w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm",
+            "bg-gray-100 border border-gray-300 text-gray-700",
+            "hover:bg-purple-50 hover:border-purple-400 hover:text-purple-600",
+            "dark:bg-neutral-800 dark:border-white/10 dark:text-gray-300",
+            "dark:hover:bg-purple-900/30 dark:hover:border-purple-500 dark:hover:text-purple-400"
+          )}
+          aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {open ? (
+            <ChevronRight className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronLeft className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
 
-      {/* Animated sidebar panel */}
-      <motion.div
-        className={cn(
-          "h-full flex flex-col overflow-hidden",
-          "bg-white border-l border-gray-200 shadow-sm",
-          "dark:bg-[#0F0A1E] dark:border-white/10 dark:shadow-none",
-          className
-        )}
-        animate={{
-          width: animate ? (open ? "350px" : "60px") : "350px",
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        {...props}
-      >
-        {/* Inner scroll container */}
-        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-          {children}
-        </div>
-      </motion.div>
-    </div>
+      {/* Scrollable content below toggle */}
+      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+        {children}
+      </div>
+    </motion.div>
   );
 };
 
