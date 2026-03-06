@@ -610,6 +610,17 @@ export const reorderUrgentAssignments = mutation({
 
     if (!user) throw new Error('User not found')
 
+    // Verify every assignment in the batch belongs to this user before patching
+    const assignments = await Promise.all(
+      args.assignmentIds.map((id) => ctx.db.get(id))
+    )
+
+    for (const assignment of assignments) {
+      if (!assignment || assignment.userId !== user._id) {
+        throw new Error('Forbidden')
+      }
+    }
+
     // Update urgentOrder for each assignment based on position in array
     await Promise.all(
       args.assignmentIds.map((assignmentId, index) =>

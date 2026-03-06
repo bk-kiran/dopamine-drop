@@ -6,8 +6,9 @@ import { api } from '@/convex/_generated/api'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { redirect, useRouter } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { LevelCard } from '@/components/level-card'
+import { ConnectCanvasModal } from '@/components/connect-canvas-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CropAvatarModal } from '@/components/crop-avatar-modal'
@@ -51,9 +52,9 @@ export default function ProfilePage() {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
+  const [showConnectCanvas, setShowConnectCanvas] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const router = useRouter()
 
   // Get user data
   const userData = useQuery(
@@ -252,8 +253,8 @@ export default function ProfilePage() {
   // Get current level for roadmap
   const currentLevel = levelData?.currentLevel || 1
 
-  // Loading state
-  if (!isLoaded || !userData || !profileStats || !levelData || !supabaseUserId) {
+  // Loading state — only block while Clerk or Convex queries are in-flight (undefined)
+  if (!isLoaded || !supabaseUserId || userData === undefined || profileStats === undefined || levelData === undefined) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
@@ -354,7 +355,7 @@ export default function ProfilePage() {
             ) : (
               <div className="flex items-center gap-3 mb-2">
                 <h2 className="text-3xl font-bold text-[var(--text-primary)]">
-                  {userData.displayName || 'Student'}
+                  {userData?.displayName || clerkUser?.fullName || clerkUser?.firstName || 'Student'}
                 </h2>
                 <button
                   onClick={handleStartEdit}
@@ -382,7 +383,7 @@ export default function ProfilePage() {
             <Zap className="w-6 h-6 text-purple-400" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats.totalPoints}</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats?.totalPoints ?? 0}</p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Total Points</p>
           </div>
         </div>
@@ -393,7 +394,7 @@ export default function ProfilePage() {
             <Flame className="w-6 h-6 text-orange-400" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats.streakCount}</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats?.streakCount ?? 0}</p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Current Streak</p>
           </div>
         </div>
@@ -404,7 +405,7 @@ export default function ProfilePage() {
             <Trophy className="w-6 h-6 text-yellow-400" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats.longestStreak}</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats?.longestStreak ?? 0}</p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Longest Streak</p>
           </div>
         </div>
@@ -415,7 +416,7 @@ export default function ProfilePage() {
             <CheckCircle2 className="w-6 h-6 text-green-400" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats.submittedCount}</p>
+            <p className="text-3xl font-bold text-[var(--text-primary)]">{profileStats?.submittedCount ?? 0}</p>
             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wide">Submitted</p>
           </div>
         </div>
@@ -549,14 +550,14 @@ export default function ProfilePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">Achievements</h2>
-          {userAchievements && (
+          {Array.isArray(userAchievements) && (
             <span className="text-sm text-[var(--text-muted)]">
               {userAchievements.filter((a: any) => a.unlocked).length}/{userAchievements.length} unlocked
             </span>
           )}
         </div>
 
-        {userAchievements && userAchievements.length > 0 ? (
+        {Array.isArray(userAchievements) && userAchievements.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {userAchievements.map((achievement: any) => {
               const colors = ACHIEVEMENT_COLOR_MAP[achievement.color] ?? ACHIEVEMENT_COLOR_MAP.purple
@@ -657,7 +658,7 @@ export default function ProfilePage() {
                 <p className="font-semibold text-[var(--text-primary)] mb-1">No Canvas Account Linked</p>
                 <p className="text-sm text-[var(--text-muted)] mb-3">Connect Canvas to sync assignments and earn points</p>
                 <button
-                  onClick={() => router.push('/dashboard/setup')}
+                  onClick={() => setShowConnectCanvas(true)}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                   Connect Canvas
@@ -780,6 +781,8 @@ export default function ProfilePage() {
           onCancel={handleCropCancel}
         />
       )}
+
+      <ConnectCanvasModal isOpen={showConnectCanvas} onClose={() => setShowConnectCanvas(false)} />
     </div>
   )
 }

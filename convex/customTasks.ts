@@ -9,6 +9,20 @@ async function getUserByClerkId(ctx: any, clerkId: string) {
     .first()
 }
 
+// Helper: get or create user by Clerk ID (for users who haven't had webhook fire yet)
+async function getOrCreateUserByClerkId(ctx: any, clerkId: string) {
+  const existing = await getUserByClerkId(ctx, clerkId)
+  if (existing) return existing
+
+  const userId = await ctx.db.insert('users', {
+    clerkId,
+    totalPoints: 0,
+    streakCount: 0,
+    longestStreak: 0,
+  })
+  return await ctx.db.get(userId)
+}
+
 // Helper: update streak (with shield protection and milestone awards)
 async function updateStreak(ctx: any, user: any): Promise<{ newStreak: number; shieldUsed: boolean; protectedStreak: number | null }> {
   const today = new Date().toISOString().split('T')[0]
@@ -157,7 +171,7 @@ export const createCustomTask = mutation({
     dueAt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getUserByClerkId(ctx, args.clerkId)
+    const user = await getOrCreateUserByClerkId(ctx, args.clerkId)
     if (!user) throw new Error('User not found')
 
     const taskId = await ctx.db.insert('customTasks', {

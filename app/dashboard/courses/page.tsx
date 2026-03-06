@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
 import { formatCourseName, getCourseCode } from '@/lib/course-utils'
 import { CourseTaskModal } from '@/components/course-task-modal'
+import { LockedPage } from '@/components/locked-page'
 
 interface Course {
   _id: string
@@ -54,7 +55,7 @@ export default function CoursesPage() {
   const toggleHiddenCourse = useMutation(api.users.toggleHiddenCourse)
 
   // Loading state
-  if (!dashboardData || !assignments || !supabaseUserId) {
+  if (dashboardData === undefined || assignments === undefined || !supabaseUserId) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-6">
         <div className="flex items-center justify-center h-64">
@@ -64,6 +65,16 @@ export default function CoursesPage() {
           </div>
         </div>
       </div>
+    )
+  }
+
+  // Canvas not connected — show locked state
+  if (!dashboardData?.user?.canvasTokenEncrypted) {
+    return (
+      <LockedPage
+        title="Canvas Required"
+        description="Connect your Canvas account to view courses and track assignment progress."
+      />
     )
   }
 

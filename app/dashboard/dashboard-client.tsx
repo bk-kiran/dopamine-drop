@@ -11,11 +11,13 @@ import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
 import { DashboardSettingsModal, useDashboardSettings } from '@/components/dashboard-settings-modal'
 import { DailyChallenges } from '@/components/daily-challenges'
+import { ConnectCanvasModal } from '@/components/connect-canvas-modal'
 import {
   Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart,
   Circle, CheckCircle2, Loader2, Trash2, Pencil, Check,
   Settings, ChevronDown, ChevronRight, Calendar,
   AlertTriangle, CalendarClock, CalendarRange, Trophy, ClipboardList,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
@@ -116,6 +118,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
   const [editTask, setEditTask] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [showConnectCanvas, setShowConnectCanvas] = useState(false)
   const { settings: dashSettings, saveSettings: saveDashSettings } = useDashboardSettings()
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
   const [uncompletingTaskId, setUncompletingTaskId] = useState<string | null>(null)
@@ -166,6 +169,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   const userData = dashboardData.user
   const allCourses = dashboardData.courses
+  const isCanvasConnected = !!(userData?.canvasTokenEncrypted)
   const pointsData = dashboardData.visiblePoints
   const hiddenCourses: string[] = userData?.hiddenCourses || []
 
@@ -667,7 +671,10 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             <Settings className="w-4 h-4" />
           </button>
 
-          <DashboardNavbar />
+          <DashboardNavbar
+            isCanvasConnected={isCanvasConnected}
+            onConnectCanvas={() => setShowConnectCanvas(true)}
+          />
         </div>
       </div>
 
@@ -692,11 +699,46 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         )}
       </AnimatePresence>
 
+      {/* Canvas Not Connected — CTA */}
+      {!isCanvasConnected && (
+        <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-violet-500/10 p-6 mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <LinkIcon className="w-5 h-5 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-[var(--text-primary)] mb-0.5">Connect Canvas to import assignments</h3>
+              <p className="text-xs text-[var(--text-muted)]">
+                Auto-sync courses, grades, and deadlines. Custom tasks work without Canvas.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowConnectCanvas(true)}
+              className="flex-shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              Connect Canvas
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
       {allTasks.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center">
-            <p className="text-[var(--text-muted)]">No tasks yet. Sync Canvas or add a custom task to get started.</p>
+            <p className="text-[var(--text-muted)] mb-3">
+              {isCanvasConnected
+                ? 'No tasks yet. Add a custom task to get started.'
+                : 'Connect Canvas or add a custom task to see tasks here.'}
+            </p>
+            {!isCanvasConnected && (
+              <button
+                onClick={() => setShowConnectCanvas(true)}
+                className="text-sm text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors"
+              >
+                Connect Canvas
+              </button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -762,6 +804,11 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         onClose={() => setIsSettingsOpen(false)}
         settings={dashSettings}
         onSave={saveDashSettings}
+      />
+
+      <ConnectCanvasModal
+        isOpen={showConnectCanvas}
+        onClose={() => setShowConnectCanvas(false)}
       />
 
       <AddTaskModal

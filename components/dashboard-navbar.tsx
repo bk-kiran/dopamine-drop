@@ -7,9 +7,11 @@ import { useToast } from '@/components/ui/use-toast'
 
 interface DashboardNavbarProps {
   showStats?: boolean // Whether to show streak/points chips (for main dashboard)
+  isCanvasConnected?: boolean
+  onConnectCanvas?: () => void
 }
 
-export function DashboardNavbar({ showStats = false }: DashboardNavbarProps) {
+export function DashboardNavbar({ showStats = false, isCanvasConnected = true, onConnectCanvas }: DashboardNavbarProps) {
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
   const [isSyncing, setIsSyncing] = useState(false)
@@ -21,6 +23,11 @@ export function DashboardNavbar({ showStats = false }: DashboardNavbarProps) {
   }, [])
 
   const handleSync = async () => {
+    if (!isCanvasConnected) {
+      onConnectCanvas?.()
+      return
+    }
+
     setIsSyncing(true)
     localStorage.removeItem('lastSyncTime')
 

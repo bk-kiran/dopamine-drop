@@ -18,6 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
+import { LockedPage } from '@/components/locked-page'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
 
@@ -493,6 +494,17 @@ export default function GradesPage() {
       <div className="flex items-center justify-center h-64">
         <p className="text-sm text-[var(--text-muted)]">Please log in to view grades.</p>
       </div>
+    )
+  }
+
+  // Canvas not connected — show locked state
+  if (!userData?.canvasTokenEncrypted) {
+    return (
+      <LockedPage
+        title="Canvas Required"
+        description="Connect your Canvas account to view grades and academic performance."
+        unlocks={['Current grade percentages', 'Assignment scores by group', 'GPA calculator', 'What-if grade projections']}
+      />
     )
   }
 

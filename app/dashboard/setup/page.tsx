@@ -13,8 +13,6 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-react'
-import Link from 'next/link'
-
 // ─── Canvas instructions list ──────────────────────────────────────────────────
 
 const instructions = [
@@ -446,12 +444,12 @@ export default function SetupPage() {
                   Back
                 </button>
               ) : (
-                <Link
-                  href="/dashboard"
-                  className="text-sm text-white/30 hover:text-white/60 transition-colors"
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="text-sm text-white/30 hover:text-white/60 transition-colors underline cursor-pointer"
                 >
                   I'll do this later
-                </Link>
+                </button>
               )}
             </div>
 

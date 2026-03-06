@@ -15,6 +15,8 @@ import type * as courses from "../courses.js";
 import type * as customTasks from "../customTasks.js";
 import type * as files from "../files.js";
 import type * as leaderboard from "../leaderboard.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as migrations_wipeAllData from "../migrations/wipeAllData.js";
 import type * as migrations_wipeUserData from "../migrations/wipeUserData.js";
 import type * as points from "../points.js";
 import type * as rewards from "../rewards.js";
@@ -35,6 +37,8 @@ declare const fullApi: ApiFromModules<{
   customTasks: typeof customTasks;
   files: typeof files;
   leaderboard: typeof leaderboard;
+  "lib/auth": typeof lib_auth;
+  "migrations/wipeAllData": typeof migrations_wipeAllData;
   "migrations/wipeUserData": typeof migrations_wipeUserData;
   points: typeof points;
   rewards: typeof rewards;

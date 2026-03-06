@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "wipe": "convex dev --once && convex run migrations/wipeAllData:wipeAllData",
+    "wipe:run": "convex run migrations/wipeAllData:wipeAllData"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.1",
