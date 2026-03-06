@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse
     }
 
+    // Parse optional body params
+    const body = await request.json().catch(() => ({}))
+    const isInitialSync = body.isInitialSync === true
+
     // Get Convex client and user ID
     const convex = getConvexClient()
     const convexUserId = await getConvexUserId(userId)
@@ -77,6 +81,8 @@ export async function POST(request: NextRequest) {
     const hiddenCourses = userData.hiddenCourses || []
     const canvasUserId = parseInt(userData.canvasUserId || '0')
     let totalSynced = 0
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     const completedAssignments: {
       assignmentId: string
       title: string
@@ -177,6 +183,15 @@ export async function POST(request: NextRequest) {
           const gradeReceived = userSubmission?.score ?? undefined
           const assignmentGroupName = assignment.assignment_group?.name ?? undefined
 
+          // On initial sync: mark assignments overdue >7 days (and not submitted) as old-archived
+          let isArchivedOld: boolean | undefined = undefined
+          if (isInitialSync && assignmentData.status !== 'submitted' && assignmentData.due_at) {
+            const dueDate = new Date(assignmentData.due_at)
+            if (dueDate < sevenDaysAgo) {
+              isArchivedOld = true
+            }
+          }
+
           // Upsert assignment only if needed
           if (needsUpdate || isNewlySubmitted) {
             await convex.mutation(api.assignments.upsertAssignment, {
@@ -192,6 +207,7 @@ export async function POST(request: NextRequest) {
               canvasCourseId: assignmentData.canvas_course_id,
               gradeReceived,
               assignmentGroupName,
+              isArchivedOld,
             })
             totalSynced++
           }
@@ -258,6 +274,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Canvas Sync] Total assignments synced: ${totalSynced}`)
     console.log(`[Canvas Sync] Completed assignments: ${completedAssignments.length}`)
 
+    // Mark initial sync complete (after all data is saved)
+    if (isInitialSync) {
+      await convex.mutation(api.users.markInitialSyncComplete, { clerkId: userId })
+    }
+
     // Check if this is an auto-sync request
     const isAutoSync = request.headers.get('x-auto-sync') === 'true'
 
@@ -269,12 +290,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Build synced courses list for initial sync (needed by CourseSelectionModal)
+    const syncedCourses = isInitialSync
+      ? courses.map((c) => ({
+          canvasCourseId: c.id.toString(),
+          name: c.name,
+          courseCode: c.course_code,
+        }))
+      : undefined
+
     // Full response for manual sync
     return NextResponse.json({
       synced: totalSynced,
       courses: courses.length,
       completedAssignments,
       newReward,
+      isInitialSync: isInitialSync || undefined,
+      syncedCourses,
     })
   } catch (error) {
     logInternalError('Canvas Sync', error)

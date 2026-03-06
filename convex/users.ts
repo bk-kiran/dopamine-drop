@@ -234,6 +234,41 @@ export const toggleHiddenCourse = mutation({
   },
 })
 
+// Set hidden courses (batch replace — used by course selection modal)
+export const setHiddenCourses = mutation({
+  args: {
+    clerkId: v.string(),
+    hiddenCourses: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, { hiddenCourses: args.hiddenCourses })
+    return args.hiddenCourses
+  },
+})
+
+// Mark that the user has completed their initial Canvas sync + course selection
+export const markInitialSyncComplete = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, { hasCompletedInitialSync: true })
+    return { success: true }
+  },
+})
+
 // Show all courses (clear hidden list)
 export const showAllCourses = mutation({
   args: { clerkId: v.string() },

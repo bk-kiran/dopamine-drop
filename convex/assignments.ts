@@ -83,6 +83,9 @@ export const getAssignmentsWithCourseInfo = query({
         }
       })
       .filter((a) => {
+        // Never show old-archived assignments in this view
+        if (a.isArchivedOld) return false
+
         // Always include pending assignments
         if (a.status === 'pending') return true
 
@@ -149,6 +152,9 @@ export const getAssignmentsBySupabaseId = query({
         }
       })
       .filter((a) => {
+        // Never show old-archived assignments in dashboard
+        if (a.isArchivedOld) return false
+
         // Always include pending assignments
         if (a.status === 'pending') return true
 
@@ -182,6 +188,7 @@ export const upsertAssignment = mutation({
     canvasCourseId: v.string(),
     gradeReceived: v.optional(v.float64()),
     assignmentGroupName: v.optional(v.string()),
+    isArchivedOld: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -202,6 +209,7 @@ export const upsertAssignment = mutation({
     }
     if (args.gradeReceived !== undefined) data.gradeReceived = args.gradeReceived
     if (args.assignmentGroupName !== undefined) data.assignmentGroupName = args.assignmentGroupName
+    if (args.isArchivedOld !== undefined) data.isArchivedOld = args.isArchivedOld
 
     if (existing) {
       await ctx.db.patch(existing._id, data)
@@ -487,16 +495,18 @@ export const getAssignmentsForSchedule = query({
       }
     })
 
-    // Join with course info (no filtering)
-    const joined = assignments.map((a) => {
-      const course = courseMap.get(a.courseId)
-      return {
-        ...a,
-        courseName: course?.name || '',
-        courseCode: course?.courseCode || '',
-        isUrgent: a.isUrgent ?? false,
-      }
-    })
+    // Join with course info — filter out old-archived but keep everything else
+    const joined = assignments
+      .filter((a) => !a.isArchivedOld)
+      .map((a) => {
+        const course = courseMap.get(a.courseId)
+        return {
+          ...a,
+          courseName: course?.name || '',
+          courseCode: course?.courseCode || '',
+          isUrgent: a.isUrgent ?? false,
+        }
+      })
 
     return joined
   },

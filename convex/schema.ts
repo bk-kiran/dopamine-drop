@@ -22,6 +22,7 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     avatarStorageId: v.optional(v.id('_storage')), // Convex file storage ID for profile photo
     hiddenCourses: v.optional(v.array(v.string())), // Array of Canvas course IDs
+    hasCompletedInitialSync: v.optional(v.boolean()), // True after first Canvas sync + course selection
 
     // Gamification
     totalPoints: v.optional(v.number()),
@@ -71,6 +72,7 @@ export default defineSchema({
     gradeReceived: v.optional(v.float64()),      // Actual score received e.g. 18
     assignmentGroupName: v.optional(v.string()), // e.g. 'Homework', 'Exams'
     archived: v.optional(v.boolean()),           // Soft-deleted when Canvas is disconnected
+    isArchivedOld: v.optional(v.boolean()),      // Overdue >7 days at initial sync — hidden from dashboard
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])
