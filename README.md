@@ -356,7 +356,7 @@ npx convex deploy
 
 - [Canvas LMS API](https://canvas.instructure.com/doc/api/) — comprehensive LMS integration
 - [Convex](https://convex.dev) — real-time database platform
-- [Supabase](https://supabase.com) — open-source auth infrastructure
+- [Clerk](https://clerk.com) — open-source auth infrastructure
 - [shadcn/ui](https://ui.shadcn.com) — component library
 - The UMass Amherst CS community
 
