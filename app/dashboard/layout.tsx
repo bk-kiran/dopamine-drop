@@ -20,7 +20,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { ConvexClientProvider } from "@/providers/convex-client-provider"
-import { RightPanel } from "@/components/right-panel"
 import { AchievementToast } from "@/components/achievement-toast"
 
 export default function DashboardLayout({
@@ -149,9 +148,6 @@ export default function DashboardLayout({
             <main className="flex-1 overflow-y-auto">
               {children}
             </main>
-
-            {/* Right Panel - animated collapsible sidebar */}
-            <RightPanel />
           </div>
         </div>
 
