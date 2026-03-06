@@ -4,11 +4,12 @@ import { useState, useMemo } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { Eye, EyeOff, BookOpen, CheckCircle2, Clock } from 'lucide-react'
+import { Eye, EyeOff, BookOpen, CheckCircle2, Clock, ChevronRight, MousePointerClick } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
 import { formatCourseName, getCourseCode } from '@/lib/course-utils'
+import { CourseTaskModal } from '@/components/course-task-modal'
 
 interface Course {
   _id: string
@@ -24,9 +25,16 @@ interface Assignment {
   manuallyCompleted?: boolean
 }
 
+interface SelectedCourse {
+  canvasCourseId: string
+  name: string
+  courseCode: string
+}
+
 export default function CoursesPage() {
   const { user: clerkUser } = useUser()
   const supabaseUserId = clerkUser?.id ?? null
+  const [selectedCourse, setSelectedCourse] = useState<SelectedCourse | null>(null)
 
   // Get dashboard data
   const dashboardData = useQuery(
@@ -134,6 +142,10 @@ export default function CoursesPage() {
             Manage your enrolled courses and track progress
             <span className="ml-2 text-xs opacity-75">• Showing all-time stats for {totalCourses} visible {totalCourses === 1 ? 'course' : 'courses'}</span>
           </p>
+          <div className="flex items-center gap-1.5 mt-2 text-xs text-[var(--text-muted)] opacity-60">
+            <MousePointerClick className="w-3.5 h-3.5" />
+            <span>Click a course card to view and manage its assignments</span>
+          </div>
         </div>
         <DashboardNavbar />
       </div>
@@ -183,8 +195,13 @@ export default function CoursesPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: course.isHidden ? 0.4 : 1, scale: 1 }}
             transition={{ duration: 0.2 }}
+            onClick={() => !course.isHidden && setSelectedCourse({
+              canvasCourseId: course.canvasCourseId,
+              name: formatCourseName(course.name),
+              courseCode: course.courseCode,
+            })}
             className={`relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:border-purple-500/30 transition-all duration-300 ${
-              course.isHidden ? 'overflow-hidden' : ''
+              course.isHidden ? 'overflow-hidden' : 'cursor-pointer hover:bg-white/[0.08] group'
             }`}
           >
             {/* Diagonal strikethrough overlay for hidden courses */}
@@ -199,14 +216,25 @@ export default function CoursesPage() {
             {/* Header with course name and hide button */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1 pr-2">
-                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+                <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2 group-hover:text-purple-400 transition-colors">
                   {formatCourseName(course.name)}
                 </h3>
+                {!course.isHidden && (
+                  <div className="relative h-4 text-xs text-[var(--text-muted)] group-hover:text-purple-400/70 transition-colors">
+                    <span className="absolute inset-0 flex items-center gap-1 group-hover:opacity-0 transition-opacity">
+                      {course.total} assignments <ChevronRight className="w-3 h-3" />
+                    </span>
+                    <span className="absolute inset-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MousePointerClick className="w-3 h-3" />
+                      Click to view
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Hide/Show toggle button */}
               <button
-                onClick={() => handleToggleCourse(course.canvasCourseId, course.isHidden)}
+                onClick={(e) => { e.stopPropagation(); handleToggleCourse(course.canvasCourseId, course.isHidden) }}
                 className="p-2 rounded-lg hover:bg-white/5 transition-colors"
                 title={course.isHidden ? 'Show course' : 'Hide course'}
               >
@@ -262,6 +290,18 @@ export default function CoursesPage() {
             Sync your Canvas account to see your courses here
           </p>
         </div>
+      )}
+
+      {/* Course Task Modal */}
+      {selectedCourse && supabaseUserId && (
+        <CourseTaskModal
+          canvasCourseId={selectedCourse.canvasCourseId}
+          courseName={selectedCourse.name}
+          courseCode={selectedCourse.courseCode}
+          clerkId={supabaseUserId}
+          isOpen={!!selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+        />
       )}
     </div>
   )

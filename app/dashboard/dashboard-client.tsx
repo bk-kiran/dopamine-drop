@@ -16,14 +16,17 @@ import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Card, CardContent } from '@/components/ui/card'
-import { CourseSection } from './course-section'
 import { AutoSync } from './auto-sync'
 import { AddTaskModal } from '@/components/add-task-modal'
 import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
-import { SortableSection } from '@/components/sortable-section'
 import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
-import { Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart, Circle, CheckCircle2, Loader2, Trash2, Pencil, Check, ShieldCheck } from 'lucide-react'
+import { DashboardSettingsModal, useDashboardSettings } from '@/components/dashboard-settings-modal'
+import {
+  Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart,
+  Circle, CheckCircle2, Loader2, Trash2, Pencil, Check,
+  Settings, ChevronDown, ChevronRight, Calendar
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
 import {
@@ -36,21 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable'
+import { formatCourseName } from '@/lib/course-utils'
+import { cn } from '@/lib/utils'
 
 interface Assignment {
   _id: string
@@ -69,21 +59,74 @@ interface Assignment {
   urgentOrder?: number
 }
 
-interface Course {
-  _id: string
-  name: string
-  courseCode: string
-  canvasCourseId: string
-  assignments: Assignment[]
-}
-
 type Category = 'academic' | 'club' | 'work' | 'personal'
 
-const CATEGORY_CONFIG: Record<Category, { label: string; icon: React.ElementType; color: string; borderColor: string }> = {
-  academic: { label: 'Academic', icon: BookOpen, color: 'text-purple-400', borderColor: 'border-purple-500/40' },
-  club: { label: 'Club', icon: Users, color: 'text-blue-400', borderColor: 'border-blue-500/40' },
-  work: { label: 'Work', icon: Briefcase, color: 'text-green-400', borderColor: 'border-green-500/40' },
-  personal: { label: 'Personal', icon: Heart, color: 'text-pink-400', borderColor: 'border-pink-500/40' },
+const CATEGORY_CONFIG: Record<Category, { label: string; icon: React.ElementType; color: string }> = {
+  academic: { label: 'Academic', icon: BookOpen, color: 'text-purple-400' },
+  club: { label: 'Club', icon: Users, color: 'text-blue-400' },
+  work: { label: 'Work', icon: Briefcase, color: 'text-green-400' },
+  personal: { label: 'Personal', icon: Heart, color: 'text-pink-400' },
+}
+
+// Timeline bucket definitions
+type BucketId = 'urgent' | 'overdue' | 'today' | 'tomorrow' | 'this_week' | 'later' | 'completed'
+
+interface TimelineBucket {
+  id: BucketId
+  label: string
+  emoji: string
+  color: string
+  borderColor: string
+  bgColor: string
+}
+
+const BUCKETS: TimelineBucket[] = [
+  { id: 'urgent', label: 'Urgent', emoji: '🔥', color: 'text-orange-400', borderColor: 'border-orange-500/40', bgColor: 'bg-orange-500/5' },
+  { id: 'overdue', label: 'Overdue', emoji: '🚨', color: 'text-red-400', borderColor: 'border-red-500/40', bgColor: 'bg-red-500/5' },
+  { id: 'today', label: 'Today', emoji: '📅', color: 'text-yellow-400', borderColor: 'border-yellow-500/40', bgColor: 'bg-yellow-500/5' },
+  { id: 'tomorrow', label: 'Tomorrow', emoji: '🌅', color: 'text-blue-400', borderColor: 'border-blue-500/40', bgColor: 'bg-blue-500/5' },
+  { id: 'this_week', label: 'This Week', emoji: '📆', color: 'text-purple-400', borderColor: 'border-purple-500/40', bgColor: 'bg-purple-500/5' },
+  { id: 'later', label: 'Later', emoji: '📋', color: 'text-gray-400', borderColor: 'border-white/10', bgColor: 'bg-white/[0.02]' },
+]
+
+interface UnifiedTask {
+  id: string
+  type: 'canvas' | 'custom'
+  title: string
+  dueAt: string | null
+  isUrgent: boolean
+  isCompleted: boolean
+  // Canvas-specific
+  canvasData?: Assignment
+  // Custom task-specific
+  customData?: any
+}
+
+function classifyToBucket(task: UnifiedTask, now: Date): BucketId {
+  if (task.isCompleted) return 'completed'
+
+  if (task.isUrgent) return 'urgent'
+
+  if (!task.dueAt) return 'later'
+
+  const due = new Date(task.dueAt)
+  const diffMs = due.getTime() - now.getTime()
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+
+  const todayStart = new Date(now)
+  todayStart.setHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+  const tomorrowEnd = new Date(tomorrowStart)
+  tomorrowEnd.setDate(tomorrowEnd.getDate() + 1)
+  const weekEnd = new Date(todayStart)
+  weekEnd.setDate(weekEnd.getDate() + 7)
+
+  if (due < now) return 'overdue'
+  if (due < tomorrowStart) return 'today'
+  if (due < tomorrowEnd) return 'tomorrow'
+  if (due < weekEnd) return 'this_week'
+  return 'later'
 }
 
 interface DashboardClientProps {
@@ -93,20 +136,22 @@ interface DashboardClientProps {
 export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
   const [editTask, setEditTask] = useState<any>(null)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const { settings: dashSettings, saveSettings: saveDashSettings } = useDashboardSettings()
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
   const [uncompletingTaskId, setUncompletingTaskId] = useState<string | null>(null)
   const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string } | null>(null)
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [collapsedBuckets, setCollapsedBuckets] = useState<Set<BucketId>>(new Set(['later', 'completed']))
   const { toast } = useToast()
 
-  // Consolidated dashboard query (reduces 3 queries to 1)
+  // Consolidated dashboard query
   const dashboardData = useQuery(api.users.getDashboardData, {
     clerkId: supabaseUserId,
   })
 
-  // Get assignments - conditionally apply 7-day filter based on toggle
   const sevenDaysAgoISO = useMemo(() => {
     const date = new Date()
     date.setDate(date.getDate() - 7)
@@ -118,7 +163,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     includeSubmittedSince: showAllCompleted ? undefined : sevenDaysAgoISO,
   })
 
-  // Custom tasks query
   const customTasks = useQuery(api.customTasks.getCustomTasks, { clerkId: supabaseUserId })
 
   // Mutations
@@ -126,127 +170,34 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const uncompleteCustomTask = useMutation(api.customTasks.uncompleteCustomTask)
   const deleteCustomTask = useMutation(api.customTasks.deleteCustomTask)
   const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
+  const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
+  const toggleUrgentAssignment = useMutation(api.assignments.toggleUrgent)
   const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
   const checkAndAwardAchievements = useMutation(api.achievements.checkAndAwardAchievements)
 
-  // DnD section ordering
-  const [sectionOrder, setSectionOrder] = useState<string[]>([])
-  const [isDraggingActive, setIsDraggingActive] = useState(false)
-  const savedSectionOrder = useQuery(api.users.getDashboardSectionOrder, { clerkId: supabaseUserId })
-  const updateDashboardSectionOrderMutation = useMutation(api.users.updateDashboardSectionOrder)
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  // Initialize / sync section order from DB data
-  useEffect(() => {
-    if (savedSectionOrder === undefined || dashboardData === undefined) return
-    const allCoursesList = dashboardData.courses || []
-    const hiddenList = dashboardData.user?.hiddenCourses || []
-    const visibleCourseIds = allCoursesList
-      .filter((c: any) => !hiddenList.includes(c.canvasCourseId))
-      .map((c: any) => `course_${c.canvasCourseId}`)
-    const allSectionIds = [...visibleCourseIds, 'my_tasks']
-    if (!savedSectionOrder) {
-      setSectionOrder(allSectionIds)
-      return
-    }
-    const validSaved = savedSectionOrder.filter((id: string) => allSectionIds.includes(id))
-    const newItems = allSectionIds.filter((id) => !savedSectionOrder.includes(id))
-    setSectionOrder([...validSaved, ...newItems])
-  }, [savedSectionOrder, dashboardData])
-
-  // Debug logging
-  console.log('[Dashboard] Supabase User ID:', supabaseUserId)
-  console.log('[Dashboard] dashboardData:', dashboardData)
-  console.log('[Dashboard] assignments:', assignments)
-
-  // Loading state - check if queries are still loading
+  // Loading state
   if (dashboardData === undefined || assignments === undefined) {
-    console.log('[Dashboard] Still loading...')
     return (
-      <div className="container max-w-6xl mx-auto px-4 py-10">
+      <div className="container max-w-4xl mx-auto px-4 py-10">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-muted-foreground">Loading dashboard...</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              dashboardData: {dashboardData === undefined ? 'loading' : 'loaded'} |
-              assignments: {assignments === undefined ? 'loading' : 'loaded'}
-            </p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mb-4"></div>
+            <p className="text-[var(--text-muted)]">Loading dashboard...</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // Extract data from consolidated query
   const userData = dashboardData.user
   const allCourses = dashboardData.courses
   const pointsData = dashboardData.visiblePoints
-
-  // Note: Canvas token check is handled in the server component (page.tsx)
-  // so we don't need to redirect here
-
   const hiddenCourses: string[] = userData?.hiddenCourses || []
 
-  // Create a map of courses with their assignments
-  const courseMap = new Map<string, Course>()
-
-  // First, add ALL courses to the map (even those with no assignments)
-  if (allCourses) {
-    allCourses.forEach((course: any) => {
-      courseMap.set(course.canvasCourseId, {
-        _id: course._id,
-        name: course.name,
-        courseCode: course.courseCode,
-        canvasCourseId: course.canvasCourseId,
-        assignments: [],
-      })
-    })
-  }
-
-  // Then, add assignments to their respective courses
-  if (assignments) {
-    assignments.forEach((assignment: any) => {
-      const canvasCourseId = assignment.canvasCourseId
-      const course = courseMap.get(canvasCourseId)
-
-      if (course) {
-        course.assignments.push({
-          _id: assignment._id,
-          canvasAssignmentId: assignment.canvasAssignmentId,
-          canvasCourseId: assignment.canvasCourseId,
-          title: assignment.title,
-          description: assignment.description,
-          dueAt: assignment.dueAt,
-          pointsPossible: assignment.pointsPossible,
-          status: assignment.status,
-          submittedAt: assignment.submittedAt,
-          courseName: assignment.courseName,
-          courseCode: assignment.courseCode,
-          manuallyCompleted: assignment.manuallyCompleted,
-          isUrgent: assignment.isUrgent,
-          urgentOrder: assignment.urgentOrder,
-        })
-      }
-    })
-  }
-
-  const courses = Array.from(courseMap.values())
-
-  // Only show visible (non-hidden) courses
-  const visibleCourses = courses.filter(
-    (course) => !hiddenCourses.includes(course.canvasCourseId)
-  )
-
-  // Check if 2x XP multiplier is active today
   const isMultiplierActive =
     !!userData?.xpMultiplierDay &&
     userData.xpMultiplierDay === String(new Date().getDay())
 
-  // Get dynamic greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return 'Good morning'
@@ -254,14 +205,80 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     return 'Good evening'
   }
 
-  // Get user's first name
   const getFirstName = () => {
     if (!userData?.displayName) return ''
     return userData.displayName.split(' ')[0]
   }
 
-  // Custom task handlers
-  const handleCompleteTask = async (taskId: string, taskTitle: string) => {
+  // Build unified task list
+  const now = new Date()
+
+  const canvasTasks: UnifiedTask[] = (assignments || [])
+    .filter((a: any) => !hiddenCourses.includes(a.canvasCourseId))
+    .map((a: any) => ({
+      id: a._id,
+      type: 'canvas' as const,
+      title: a.title,
+      dueAt: a.dueAt,
+      isUrgent: a.isUrgent ?? false,
+      isCompleted: a.status === 'submitted' || a.manuallyCompleted === true,
+      canvasData: a,
+    }))
+
+  const customUnifiedTasks: UnifiedTask[] = (customTasks || []).map((t: any) => ({
+    id: t._id,
+    type: 'custom' as const,
+    title: t.title,
+    dueAt: t.dueAt,
+    isUrgent: t.isUrgent ?? false,
+    isCompleted: t.status === 'completed',
+    customData: t,
+  }))
+
+  const allTasks = [...canvasTasks, ...customUnifiedTasks]
+
+  // Bucket map
+  const bucketMap = new Map<BucketId, UnifiedTask[]>()
+  for (const b of [...BUCKETS, { id: 'completed' as BucketId }]) {
+    bucketMap.set(b.id, [])
+  }
+  for (const task of allTasks) {
+    const bucket = classifyToBucket(task, now)
+    bucketMap.get(bucket)!.push(task)
+  }
+
+  // Sort each bucket by dueAt
+  for (const [, tasks] of bucketMap) {
+    tasks.sort((a, b) => {
+      if (!a.dueAt && !b.dueAt) return 0
+      if (!a.dueAt) return 1
+      if (!b.dueAt) return -1
+      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
+    })
+  }
+
+  // Bucket visibility map from settings
+  const bucketVisible: Record<BucketId, boolean> = {
+    urgent: dashSettings.showUrgent,
+    overdue: dashSettings.showOverdue,
+    today: dashSettings.showToday,
+    tomorrow: dashSettings.showTomorrow,
+    this_week: dashSettings.showThisWeek,
+    later: true,
+    completed: true,
+  }
+
+  const toggleBucket = (id: BucketId) => {
+    setCollapsedBuckets(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Handlers
+  const handleCompleteCustomTask = async (taskId: string, taskTitle: string) => {
     setCompletingTaskId(taskId)
     try {
       const result = await completeCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
@@ -273,15 +290,25 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
         duration: 4000,
       })
-      if (result.shieldUsed && result.protectedStreak) {
-        toast({
-          title: `Shield used! Your ${result.protectedStreak}-day streak is protected`,
-          description: 'A streak shield absorbed the missed day.',
-          className: 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100',
-          duration: 5000,
-        })
-      }
-      // Update daily challenge progress + check achievements (fire and forget)
+      updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
+      checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
+    } finally {
+      setCompletingTaskId(null)
+    }
+  }
+
+  const handleCompleteCanvasTask = async (assignmentId: string, title: string) => {
+    setCompletingTaskId(assignmentId)
+    try {
+      await manuallyCompleteAssignment({ assignmentId: assignmentId as any, clerkId: supabaseUserId })
+      toast({
+        title: `Assignment completed!`,
+        description: title,
+        className: 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
+        duration: 3000,
+      })
       updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
       checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
     } catch (err: any) {
@@ -310,7 +337,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     }
   }
 
-  const handleDeleteTask = async (taskId: string, taskTitle: string) => {
+  const handleDeleteCustomTask = async (taskId: string, taskTitle: string) => {
     setDeletingTaskId(taskId)
     try {
       await deleteCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
@@ -322,18 +349,9 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     }
   }
 
-  const handleToggleUrgentTask = async (taskId: string, currentlyUrgent: boolean) => {
-    console.log('[Dashboard] Toggle urgent custom task:', {
-      taskId,
-      currentlyUrgent,
-      willBeUrgent: !currentlyUrgent,
-    })
-
+  const handleToggleUrgentCustom = async (taskId: string) => {
     try {
       const result = await toggleUrgentCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
-
-      console.log('[Dashboard] Toggle mutation complete:', result)
-
       toast({
         description: result.isUrgent ? (
           <span className="flex items-center gap-1.5">
@@ -349,279 +367,313 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         duration: 2000,
       })
     } catch (err: any) {
-      console.error('[Dashboard] Error toggling urgent:', err)
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     }
   }
 
-
-  // Handle drag end for section reordering
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    setIsDraggingActive(false)
-    if (!over || active.id === over.id) return
-    const oldIndex = sectionOrder.indexOf(active.id as string)
-    const newIndex = sectionOrder.indexOf(over.id as string)
-    if (oldIndex === -1 || newIndex === -1) return
-    const newOrder = arrayMove(sectionOrder, oldIndex, newIndex)
-    setSectionOrder(newOrder)
+  const handleToggleUrgentCanvas = async (assignmentId: string) => {
     try {
-      await updateDashboardSectionOrderMutation({
-        clerkId: supabaseUserId,
-        sectionOrder: newOrder,
-      })
-    } catch {
-      setSectionOrder(sectionOrder)
+      await toggleUrgentAssignment({ assignmentId: assignmentId as any, clerkId: supabaseUserId })
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     }
   }
 
-  // My Tasks section content (rendered inside SortableSection)
-  const myTasksContent = (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">MY TASKS</h3>
+  // Course name lookup
+  const courseNameMap = new Map<string, string>()
+  if (allCourses) {
+    for (const c of allCourses) {
+      courseNameMap.set(c.canvasCourseId, formatCourseName(c.name))
+    }
+  }
+
+  const formatDueLabel = (dueAt: string | null) => {
+    if (!dueAt) return null
+    const due = new Date(dueAt)
+    const diffMs = due.getTime() - now.getTime()
+    const diffH = Math.floor(diffMs / (1000 * 60 * 60))
+    if (diffH < 0) {
+      const absH = Math.abs(diffH)
+      return absH < 24 ? `${absH}h overdue` : `${Math.floor(absH / 24)}d overdue`
+    }
+    if (diffH < 1) return 'Due very soon'
+    if (diffH < 24) return `Due in ${diffH}h`
+    const diffD = Math.floor(diffH / 24)
+    if (diffD === 1) return 'Due tomorrow'
+    return `${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  }
+
+  const TaskRow = ({ task, bucketId }: { task: UnifiedTask; bucketId: BucketId }) => {
+    const isCompleting = completingTaskId === task.id
+    const isDeleting = deletingTaskId === task.id
+    const isUncompleting = uncompletingTaskId === task.id
+    const catConfig = task.type === 'custom' && task.customData?.category
+      ? CATEGORY_CONFIG[task.customData.category as Category]
+      : null
+    const CatIcon = catConfig?.icon
+
+    return (
+      <motion.div
+        layout="position"
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: task.isCompleted ? 0.5 : 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.2 }}
+        className={cn(
+          'flex items-center gap-3 px-4 py-3 rounded-xl transition-colors group/task',
+          task.isCompleted
+            ? 'hover:bg-white/[0.03]'
+            : 'hover:bg-white/[0.05]'
+        )}
+      >
+        {/* Checkbox */}
         <button
-          onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
-          className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+          onClick={() => {
+            if (task.isCompleted) {
+              if (task.type === 'custom') setTaskToUntick({ id: task.id, title: task.title })
+            } else {
+              if (task.type === 'custom') handleCompleteCustomTask(task.id, task.title)
+              else handleCompleteCanvasTask(task.id, task.title)
+            }
+          }}
+          disabled={isCompleting || isUncompleting}
+          className={cn(
+            'flex-shrink-0 transition-colors',
+            task.isCompleted
+              ? 'text-green-500 hover:text-orange-400 opacity-0 group-hover/task:opacity-100'
+              : 'text-gray-500 hover:text-green-500 opacity-0 group-hover/task:opacity-100'
+          )}
         >
-          <Plus className="w-3 h-3" /> Add task
+          {isCompleting || isUncompleting ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : task.isCompleted ? (
+            <CheckCircle2 className="h-5 w-5" />
+          ) : (
+            <Circle className="h-5 w-5" />
+          )}
         </button>
-      </div>
 
-      {!customTasks || customTasks.length === 0 ? (
-        <Card className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/8">
-          <CardContent className="py-10 text-center">
-            <p className="text-sm text-[var(--text-muted)]">No custom tasks yet.</p>
-            <button
-              onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
-              className="mt-3 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-2"
+        {/* Task info */}
+        <button
+          onClick={() => {
+            if (task.type === 'canvas' && task.canvasData) {
+              setTaskModalItem({
+                type: 'assignment',
+                id: task.id,
+                title: task.title,
+                description: task.canvasData.description,
+                dueAt: task.dueAt,
+                pointsPossible: task.canvasData.pointsPossible,
+                status: task.canvasData.status,
+                isUrgent: task.isUrgent,
+                courseName: task.canvasData.courseName,
+              })
+            } else if (task.type === 'custom' && task.customData) {
+              setTaskModalItem({
+                type: 'customTask',
+                id: task.id,
+                title: task.title,
+                description: task.customData.description,
+                dueAt: task.dueAt,
+                pointsValue: task.customData.pointsValue,
+                status: task.customData.status,
+                isUrgent: task.isUrgent,
+                category: task.customData.category,
+                userNotes: task.customData.userNotes,
+              })
+            }
+          }}
+          className="flex-1 min-w-0 text-left"
+        >
+          <p className={cn(
+            'text-sm font-medium leading-snug truncate',
+            task.isCompleted
+              ? 'line-through text-[var(--text-muted)]'
+              : 'text-[var(--text-primary)]'
+          )}>
+            {task.title}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {/* Course badge (canvas) or category badge (custom) */}
+            {dashSettings.groupByCourse && task.type === 'canvas' && task.canvasData?.canvasCourseId && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 font-medium shrink-0">
+                {courseNameMap.get(task.canvasData.canvasCourseId) || task.canvasData.courseCode}
+              </span>
+            )}
+            {task.type === 'custom' && CatIcon && (
+              <span className={cn('flex items-center gap-0.5 text-[10px] font-medium', catConfig?.color)}>
+                <CatIcon className="w-3 h-3" />
+                {catConfig?.label}
+              </span>
+            )}
+            {/* Due label */}
+            {task.dueAt && (
+              <span className={cn(
+                'text-xs flex items-center gap-0.5',
+                bucketId === 'overdue' ? 'text-red-400' : 'text-[var(--text-muted)]'
+              )}>
+                <Calendar className="w-3 h-3" />
+                {formatDueLabel(task.dueAt)}
+              </span>
+            )}
+            {/* Points */}
+            {task.type === 'custom' && task.customData?.pointsValue && (
+              <span className="text-[10px] text-purple-400 font-semibold">{task.customData.pointsValue} pts</span>
+            )}
+            {task.type === 'canvas' && (task.canvasData?.pointsPossible ?? 0) > 0 && (
+              <span className="text-[10px] text-purple-400 font-semibold">{task.canvasData!.pointsPossible} pts</span>
+            )}
+          </div>
+        </button>
+
+        {/* Urgent flame */}
+        {!task.isCompleted && (
+          <button
+            onClick={() => {
+              if (task.type === 'custom') handleToggleUrgentCustom(task.id)
+              else handleToggleUrgentCanvas(task.id)
+            }}
+            className={cn(
+              'p-1 rounded transition-all shrink-0',
+              task.isUrgent
+                ? 'text-orange-400'
+                : 'opacity-0 group-hover/task:opacity-100 text-[var(--text-muted)] hover:text-orange-400'
+            )}
+            title={task.isUrgent ? 'Remove urgent' : 'Mark urgent'}
+          >
+            <Flame className={cn('w-4 h-4', task.isUrgent && 'fill-orange-400')} />
+          </button>
+        )}
+
+        {/* Edit (custom tasks only) */}
+        {task.type === 'custom' && !task.isCompleted && (
+          <button
+            onClick={() => { setEditTask(task.customData); setIsAddTaskOpen(true) }}
+            className="p-1 rounded text-[var(--text-muted)] hover:text-purple-400 opacity-0 group-hover/task:opacity-100 transition-all"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Delete (custom tasks only) */}
+        {task.type === 'custom' && (
+          <button
+            onClick={() => handleDeleteCustomTask(task.id, task.title)}
+            disabled={isDeleting}
+            className="p-1 rounded text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all"
+          >
+            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+          </button>
+        )}
+
+        {/* Due status dot */}
+        {!task.isCompleted && task.dueAt && (() => {
+          const hrs = (new Date(task.dueAt).getTime() - now.getTime()) / (1000 * 60 * 60)
+          if (hrs < 0) return <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+          if (hrs < 24) return <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+          if (hrs / 24 <= 3) return <div className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
+          return <div className="w-2 h-2 rounded-full bg-gray-600 shrink-0" />
+        })()}
+        {task.isCompleted && <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />}
+      </motion.div>
+    )
+  }
+
+  const BucketSection = ({ bucket }: { bucket: TimelineBucket }) => {
+    if (!bucketVisible[bucket.id]) return null
+
+    const tasks = bucketMap.get(bucket.id) || []
+    if (tasks.length === 0) return null
+
+    const isCollapsed = collapsedBuckets.has(bucket.id)
+
+    // If separateCustomTasks, split into canvas and custom groups
+    const canvasTasksInBucket = tasks.filter(t => t.type === 'canvas')
+    const customTasksInBucket = tasks.filter(t => t.type === 'custom')
+
+    return (
+      <div className={cn('rounded-2xl border overflow-hidden', bucket.borderColor, bucket.bgColor)}>
+        {/* Section header */}
+        <button
+          onClick={() => toggleBucket(bucket.id)}
+          className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.03] transition-colors"
+        >
+          <span className="text-base">{bucket.emoji}</span>
+          <span className={cn('text-sm font-bold', bucket.color)}>{bucket.label}</span>
+          <span className={cn(
+            'ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
+            bucket.id === 'overdue' ? 'bg-red-500/20 text-red-400' :
+            bucket.id === 'urgent' ? 'bg-orange-500/20 text-orange-400' :
+            'bg-white/10 text-[var(--text-muted)]'
+          )}>
+            {tasks.length}
+          </span>
+          <div className="flex-1" />
+          {isCollapsed
+            ? <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+            : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
+          }
+        </button>
+
+        {/* Tasks */}
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
             >
-              Add your first task →
-            </button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {(Object.keys(CATEGORY_CONFIG) as Category[]).map(cat => {
-            const catTasks = customTasks.filter((t: any) => t.category === cat)
-            if (catTasks.length === 0) return null
-            const { label, icon: Icon, color, borderColor } = CATEGORY_CONFIG[cat]
-
-            const pendingTasks = catTasks.filter((t: any) => t.status === 'pending')
-            const completedTasks = catTasks.filter((t: any) => t.status === 'completed')
-
-            return (
-              <Card key={cat} className={`rounded-2xl bg-white/5 backdrop-blur-md border border-white/8 hover:border-purple-400/20 transition-all duration-300 border-l-4 ${borderColor}`}>
-                <div className="px-6 pt-4 pb-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Icon className={`w-4 h-4 ${color}`} />
-                    <span className={`text-xs font-bold uppercase tracking-widest ${color}`}>{label}</span>
-                    {pendingTasks.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30">
-                        {pendingTasks.length} PENDING
-                      </span>
+              <div className="px-1 pb-2">
+                {dashSettings.separateCustomTasks && (canvasTasksInBucket.length > 0 && customTasksInBucket.length > 0) ? (
+                  <>
+                    {canvasTasksInBucket.map(task => (
+                      <TaskRow key={task.id} task={task} bucketId={bucket.id} />
+                    ))}
+                    {customTasksInBucket.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-3 px-4 my-2">
+                          <div className="flex-1 border-t border-white/10" />
+                          <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest font-bold">My Tasks</span>
+                          <div className="flex-1 border-t border-white/10" />
+                        </div>
+                        {customTasksInBucket.map(task => (
+                          <TaskRow key={task.id} task={task} bucketId={bucket.id} />
+                        ))}
+                      </>
                     )}
-                  </div>
+                  </>
+                ) : (
+                  tasks.map(task => (
+                    <TaskRow key={task.id} task={task} bucketId={bucket.id} />
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    )
+  }
 
-                  <div className="space-y-1">
-                    <AnimatePresence mode="popLayout">
-                      {pendingTasks.map((task: any) => {
-                        const isCompleting = completingTaskId === task._id
-
-                        return (
-                          <motion.div
-                            key={task._id}
-                            layout="position"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-purple-500/5 transition-colors duration-200 group/task"
-                          >
-                            <button
-                              onClick={() => handleCompleteTask(task._id, task.title)}
-                              disabled={isCompleting}
-                              className="flex-shrink-0 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50 opacity-0 group-hover/task:opacity-100"
-                            >
-                              {isCompleting ? (
-                                <Loader2 className="h-6 w-6 animate-spin text-green-600" />
-                              ) : (
-                                <Circle className="h-6 w-6" />
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => setTaskModalItem({
-                                type: 'customTask',
-                                id: task._id,
-                                title: task.title,
-                                description: task.description,
-                                dueAt: task.dueAt,
-                                pointsValue: task.pointsValue,
-                                status: task.status,
-                                isUrgent: task.isUrgent,
-                                category: task.category,
-                                userNotes: task.userNotes,
-                              })}
-                              className="flex-1 min-w-0 text-left cursor-pointer"
-                            >
-                              <h3 className="font-medium text-[var(--text-primary)] text-sm truncate">{task.title}</h3>
-                              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
-                                {task.dueAt && (
-                                  <>
-                                    <span>{new Date(task.dueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                    <span>•</span>
-                                  </>
-                                )}
-                                <span>{task.pointsValue} pts</span>
-                              </div>
-                            </button>
-
-                            {/* Flame urgent button */}
-                            <button
-                              onClick={() => handleToggleUrgentTask(task._id, task.isUrgent || false)}
-                              className={`p-1 rounded hover:bg-orange-50 transition-colors ${task.isUrgent ? '' : 'opacity-0 group-hover/task:opacity-100'}`}
-                            >
-                              <Flame className={`w-4 h-4 ${task.isUrgent ? 'text-orange-500 fill-orange-500' : 'text-gray-300'}`} />
-                            </button>
-
-                            {/* Edit button */}
-                            <button
-                              onClick={() => { setEditTask(task); setIsAddTaskOpen(true) }}
-                              className="p-1 rounded hover:bg-purple-500/10 text-[var(--text-muted)] hover:text-purple-400 opacity-0 group-hover/task:opacity-100 transition-all"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Delete button */}
-                            <button
-                              onClick={() => handleDeleteTask(task._id, task.title)}
-                              disabled={deletingTaskId === task._id}
-                              className="p-1 rounded hover:bg-red-500/10 text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all"
-                            >
-                              {deletingTaskId === task._id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-
-                            {/* Due date dot */}
-                            {task.dueAt && (() => {
-                              const hours = (new Date(task.dueAt).getTime() - new Date().getTime()) / (1000 * 60 * 60)
-                              if (hours < 0) return <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
-                              if (hours < 24) return <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
-                              if (hours / 24 <= 3) return <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
-                              return <div className="w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />
-                            })()}
-                          </motion.div>
-                        )
-                      })}
-                    </AnimatePresence>
-
-                    {/* Divider */}
-                    {pendingTasks.length > 0 && completedTasks.length > 0 && (
-                      <div className="flex items-center gap-3 my-3">
-                        <div className="flex-1 border-t border-[var(--glass-border)]" />
-                        <span className="text-xs text-[var(--text-muted)]">Completed</span>
-                        <div className="flex-1 border-t border-[var(--glass-border)]" />
-                      </div>
-                    )}
-
-                    {/* Completed tasks */}
-                    <AnimatePresence mode="popLayout">
-                      {completedTasks.map((task: any) => {
-                        const isUncompleting = uncompletingTaskId === task._id
-                        return (
-                          <motion.div
-                            key={task._id}
-                            layout="position"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-50 group/task"
-                          >
-                            <button
-                              onClick={() => setTaskToUntick({ id: task._id, title: task.title })}
-                              disabled={isUncompleting}
-                              className="flex-shrink-0 text-green-600 hover:text-orange-600 transition-colors opacity-0 group-hover/task:opacity-100"
-                            >
-                              {isUncompleting ? (
-                                <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
-                              ) : (
-                                <CheckCircle2 className="h-6 w-6" />
-                              )}
-                            </button>
-
-                            <button
-                              onClick={() => setTaskModalItem({
-                                type: 'customTask',
-                                id: task._id,
-                                title: task.title,
-                                description: task.description,
-                                dueAt: task.dueAt,
-                                pointsValue: task.pointsValue,
-                                status: task.status,
-                                isUrgent: task.isUrgent,
-                                category: task.category,
-                                userNotes: task.userNotes,
-                              })}
-                              className="flex-1 min-w-0 text-left cursor-pointer"
-                            >
-                              <h3 className="font-medium text-[var(--text-primary)] text-sm truncate line-through">{task.title}</h3>
-                              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mt-0.5">
-                                {task.dueAt && (
-                                  <>
-                                    <span>{new Date(task.dueAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                    <span>•</span>
-                                  </>
-                                )}
-                                <span>{task.pointsValue} pts</span>
-                              </div>
-                            </button>
-
-                            {/* Delete completed task */}
-                            <button
-                              onClick={() => handleDeleteTask(task._id, task.title)}
-                              disabled={deletingTaskId === task._id}
-                              className="p-1 rounded hover:bg-red-500/10 text-[var(--text-muted)] hover:text-red-400 opacity-0 group-hover/task:opacity-100 transition-all"
-                            >
-                              {deletingTaskId === task._id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-
-                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                          </motion.div>
-                        )
-                      })}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+  const totalPending = allTasks.filter(t => !t.isCompleted).length
+  const totalCompleted = allTasks.filter(t => t.isCompleted).length
+  const completedTasks = bucketMap.get('completed') || []
 
   return (
-    <div className="container max-w-6xl mx-auto px-4 py-6">
-      {/* Slim header strip */}
+    <div className="container max-w-4xl mx-auto px-4 py-6">
+      {/* Header strip */}
       <div className="flex items-center justify-between mb-6 py-4">
         <div>
           <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-1">
             ACADEMIC WORKSPACE
           </p>
           <h2 className="text-lg font-bold text-[var(--text-primary)]">
-            Welcome back{getFirstName() && `, ${getFirstName()}`}
+            {getGreeting()}{getFirstName() && `, ${getFirstName()}`}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Streak chip */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
             <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
@@ -634,9 +686,10 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </div>
 
           {/* Points chip */}
-          <div className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border transition-all duration-300 ${
+          <div className={cn(
+            'relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border transition-all duration-300',
             isMultiplierActive ? 'border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.25)]' : 'border-[var(--glass-border)]'
-          }`}>
+          )}>
             <Zap className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
             <span className="text-xs font-semibold text-[var(--text-primary)]">
               {pointsData.totalPoints} PTS
@@ -648,47 +701,51 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             )}
           </div>
 
+          {/* Pending/done summary */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
+            <span className="text-xs font-semibold text-[var(--text-primary)]">{totalPending} pending</span>
+            <span className="text-[var(--text-muted)] text-xs">·</span>
+            <span className="text-xs text-green-400 font-semibold">{totalCompleted} done</span>
+          </div>
+
           {/* Show All Completed toggle */}
           <button
-            onClick={() => {
-              const newValue = !showAllCompleted
-              setShowAllCompleted(newValue)
-              toast({
-                description: newValue
-                  ? 'Showing all completed assignments'
-                  : 'Showing recent assignments (7 days)',
-                duration: 2000,
-              })
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 ${
+            onClick={() => setShowAllCompleted(v => !v)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200',
               showAllCompleted
                 ? 'bg-green-500/20 border-green-500/30 text-green-400'
                 : 'bg-[var(--glass-bg)] border-[var(--glass-border)] text-[var(--text-muted)]'
-            }`}
+            )}
             title={showAllCompleted ? 'Showing all completed' : 'Showing recent only (7 days)'}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span className="text-xs font-semibold">
-              {showAllCompleted ? 'ALL' : '7D'}
-            </span>
+            <span className="text-xs font-semibold">{showAllCompleted ? 'ALL' : '7D'}</span>
           </button>
 
-          {/* Add Task button */}
+          {/* Add Task */}
           <button
             onClick={() => { setEditTask(null); setIsAddTaskOpen(true) }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-200 text-purple-400"
-            title="Add custom task"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="text-xs font-semibold">ADD TASK</span>
           </button>
 
-          {/* Navbar (sync + theme toggle) */}
+          {/* Settings */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">SETTINGS</span>
+          </button>
+
           <DashboardNavbar />
         </div>
       </div>
 
-      {/* 2x XP Active Banner */}
+      {/* 2x XP Banner */}
       <AnimatePresence>
         {isMultiplierActive && (
           <motion.div
@@ -698,18 +755,12 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             transition={{ duration: 0.3 }}
             className="mb-4 relative overflow-hidden rounded-2xl px-5 py-3 flex items-center gap-3 bg-gradient-to-r from-purple-600/20 via-purple-500/15 to-purple-600/20 border border-purple-500/30"
           >
-            {/* Subtle animated shimmer */}
             <motion.div
               animate={{ x: ['0%', '100%', '0%'] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
               className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/10 to-transparent pointer-events-none"
             />
-            <motion.div
-              animate={{ scale: [1, 1.15, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Zap className="w-4 h-4 text-purple-400 fill-purple-400/50 flex-shrink-0" />
-            </motion.div>
+            <Zap className="w-4 h-4 text-purple-400 fill-purple-400/50 flex-shrink-0" />
             <div className="flex-1">
               <span className="text-sm font-bold text-purple-300">2× XP Active Today</span>
               <span className="text-xs text-purple-400/80 ml-2">— All points doubled!</span>
@@ -721,73 +772,70 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         )}
       </AnimatePresence>
 
-      {/* Main content: DnD sortable sections */}
-      {sectionOrder.length === 0 && courses.length === 0 && (!customTasks || customTasks.length === 0) ? (
+      {/* Timeline */}
+      {allTasks.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center">
-            <p className="text-muted-foreground mb-4">
-              No assignments found. Click &quot;Sync Canvas&quot; to fetch your latest assignments.
+            <p className="text-[var(--text-muted)] mb-4">
+              No tasks yet. Sync Canvas or add a custom task to get started.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={() => setIsDraggingActive(true)}
-          onDragEnd={handleDragEnd}
-          onDragCancel={() => setIsDraggingActive(false)}
-        >
-          <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
-            <div className="space-y-6">
-              {sectionOrder.map((sectionId) => {
-                if (sectionId === 'my_tasks') {
-                  return (
-                    <SortableSection key="my_tasks" id="my_tasks" isDraggingAny={isDraggingActive}>
-                      {myTasksContent}
-                    </SortableSection>
-                  )
+        <div className="space-y-3">
+          {BUCKETS.map(bucket => (
+            <BucketSection key={bucket.id} bucket={bucket} />
+          ))}
+
+          {/* Completed section */}
+          {completedTasks.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+              <button
+                onClick={() => toggleBucket('completed')}
+                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.03] transition-colors"
+              >
+                <span className="text-base">✅</span>
+                <span className="text-sm font-bold text-green-400">Completed</span>
+                <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/20 text-green-400">
+                  {completedTasks.length}
+                </span>
+                <div className="flex-1" />
+                {collapsedBuckets.has('completed')
+                  ? <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+                  : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
                 }
-
-                // Course section
-                const canvasCourseId = sectionId.slice('course_'.length)
-                const course = visibleCourses.find(c => c.canvasCourseId === canvasCourseId)
-                if (!course) return null
-
-                return (
-                  <SortableSection key={sectionId} id={sectionId} isDraggingAny={isDraggingActive}>
-                    <CourseSection
-                      course={{
-                        id: course._id,
-                        name: course.name,
-                        course_code: course.courseCode,
-                        canvas_course_id: course.canvasCourseId,
-                      }}
-                      assignments={course.assignments.map((a) => ({
-                        id: a._id,
-                        title: a.title,
-                        due_at: a.dueAt,
-                        points_possible: a.pointsPossible,
-                        status: a.status,
-                        submitted_at: a.submittedAt,
-                        manuallyCompleted: a.manuallyCompleted,
-                        isUrgent: a.isUrgent,
-                        description: a.description,
-                        userNotes: (a as any).userNotes,
-                      }))}
-                      supabaseUserId={supabaseUserId}
-                    />
-                  </SortableSection>
-                )
-              })}
+              </button>
+              <AnimatePresence>
+                {!collapsedBuckets.has('completed') && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-1 pb-2">
+                      {completedTasks.map(task => (
+                        <TaskRow key={task.id} task={task} bucketId="completed" />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </SortableContext>
-        </DndContext>
+          )}
+        </div>
       )}
 
       <AutoSync />
 
-      {/* Add/Edit Task Modal */}
+      <DashboardSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={dashSettings}
+        onSave={saveDashSettings}
+      />
+
       <AddTaskModal
         open={isAddTaskOpen}
         onClose={() => { setIsAddTaskOpen(false); setEditTask(null) }}
@@ -802,7 +850,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         } : undefined}
       />
 
-      {/* Custom task details modal */}
       <AssignmentDetailsModal
         open={taskModalItem !== null}
         onClose={() => setTaskModalItem(null)}
@@ -810,7 +857,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         supabaseUserId={supabaseUserId}
       />
 
-      {/* Untick confirmation dialog */}
       <AlertDialog open={taskToUntick !== null} onOpenChange={(open) => !open && setTaskToUntick(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

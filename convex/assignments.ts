@@ -645,3 +645,32 @@ export const updateAssignmentNotes = mutation({
     return { success: true }
   },
 })
+
+// Get all assignments for a specific course (for course task modal)
+export const getAssignmentsByCourse = query({
+  args: {
+    clerkId: v.string(),
+    canvasCourseId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) return []
+
+    const assignments = await ctx.db
+      .query('assignments')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    return assignments
+      .filter((a) => a.canvasCourseId === args.canvasCourseId && !a.archived)
+      .sort((a, b) => {
+        if (!a.dueAt) return 1
+        if (!b.dueAt) return -1
+        return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
+      })
+  },
+})
