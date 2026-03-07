@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw, Gift, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { LevelCard } from '@/components/level-card'
@@ -54,6 +54,7 @@ export default function ProfilePage() {
   const [showCropModal, setShowCropModal] = useState(false)
   const [showConnectCanvas, setShowConnectCanvas] = useState(false)
   const [achievementsTimedOut, setAchievementsTimedOut] = useState(false)
+  const [isAchievementsExpanded, setIsAchievementsExpanded] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -72,12 +73,6 @@ export default function ProfilePage() {
   // Get level data
   const levelData = useQuery(
     api.users.getLevel,
-    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
-  )
-
-  // Get user rewards
-  const userRewards = useQuery(
-    api.rewards.getUserRewardsBySupabaseId,
     supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
@@ -505,193 +500,241 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Rewards Section */}
-      <div className="space-y-4">
-        <h2 className="text-2xl font-bold text-[var(--text-primary)]">My Rewards</h2>
+      {/* Achievements Section — collapsible */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+        {/* Clickable header */}
+        <button
+          onClick={() => setIsAchievementsExpanded((v) => !v)}
+          className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Trophy className="w-5 h-5 text-yellow-400" />
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Achievements</h2>
+            {Array.isArray(userAchievements) && userAchievements.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/10 text-[var(--text-muted)]">
+                {userAchievements.filter((a: any) => a.unlocked).length}/{userAchievements.length}
+              </span>
+            )}
+          </div>
+          {isAchievementsExpanded
+            ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
+            : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
+        </button>
 
-        {userRewards && userRewards.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {userRewards.map((userReward) => (
-              <motion.div
-                key={userReward._id}
-                whileHover={{ scale: 1.02 }}
-                className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] hover:border-purple-400/30 transition-all"
-              >
-                {userReward.isRevealed ? (
-                  <>
-                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-                      {userReward.reward?.name || 'Unknown Reward'}
-                    </h3>
-                    <p className="text-sm text-[var(--text-muted)] mb-3">
-                      {userReward.reward?.description || ''}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                        userReward.reward?.rarity === 'legendary'
-                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                          : userReward.reward?.rarity === 'rare'
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                      }`}>
-                        {userReward.reward?.rarity || 'common'}
-                      </div>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {userReward.earnedAt
-                          ? new Date(userReward.earnedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })
-                          : 'Recently earned'}
-                      </p>
+        <AnimatePresence initial={false}>
+          {isAchievementsExpanded && (
+            <motion.div
+              key="achievements-body"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 pb-5 border-t border-white/10">
+                {/* Stats row */}
+                {Array.isArray(userAchievements) && userAchievements.length > 0 && (() => {
+                  const unlocked = userAchievements.filter((a: any) => a.unlocked)
+                  const ptsFromAch = unlocked.reduce((s: number, a: any) => s + (a.bonusPoints || 0), 0)
+                  const pct = Math.round((unlocked.length / userAchievements.length) * 100)
+                  return (
+                    <div className="grid grid-cols-3 gap-3 pt-4 mb-5">
+                      {[
+                        { label: 'Unlocked', value: `${unlocked.length}/${userAchievements.length}`, icon: Trophy,   color: 'text-yellow-400' },
+                        { label: 'Pts Earned', value: `+${ptsFromAch}`,                               icon: Sparkles, color: 'text-purple-400' },
+                        { label: 'Progress',   value: `${pct}%`,                                      icon: Check,    color: 'text-green-400'  },
+                      ].map(({ label, value, icon: Icon, color }) => (
+                        <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+                          <Icon className={`w-4 h-4 ${color} mx-auto mb-1`} />
+                          <p className="text-base font-bold text-[var(--text-primary)]">{value}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{label}</p>
+                        </div>
+                      ))}
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center">
-                      <span className="text-4xl">?</span>
-                    </div>
-                    <p className="text-sm font-bold text-purple-400 uppercase tracking-wide">
-                      Tap to reveal
-                    </p>
+                  )
+                })()}
+
+                {/* Loading skeleton */}
+                {userAchievements === undefined && !achievementsTimedOut && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-4">
+                    {[...Array(8)].map((_, i) => (
+                      <div key={i} className="h-36 rounded-2xl bg-white/5 animate-pulse" />
+                    ))}
                   </div>
                 )}
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
-            <Trophy className="w-16 h-16 mx-auto mb-4 text-[var(--text-muted)] opacity-30" />
-            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">No rewards yet</h3>
-            <p className="text-[var(--text-muted)]">
-              Complete assignments to earn points and unlock rewards!
-            </p>
-          </div>
-        )}
+
+                {/* Timeout error */}
+                {achievementsTimedOut && (
+                  <div className="text-center py-10 px-5 rounded-2xl border border-red-500/20 mt-4">
+                    <Trophy className="w-10 h-10 mx-auto mb-3 text-red-400/50" />
+                    <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Failed to load achievements</p>
+                    <p className="text-xs text-[var(--text-muted)] mb-3">Check the browser console for details.</p>
+                    <button
+                      onClick={() => setAchievementsTimedOut(false)}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[var(--text-muted)] hover:text-white transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {/* Grid */}
+                {Array.isArray(userAchievements) && userAchievements.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {userAchievements.map((achievement: any) => {
+                      const colors = ACHIEVEMENT_COLOR_MAP[achievement.color] ?? ACHIEVEMENT_COLOR_MAP.purple
+                      const IconComponent = ACHIEVEMENT_ICON_MAP[achievement.icon] ?? Star
+
+                      if (achievement.unlocked) {
+                        return (
+                          <motion.div
+                            key={achievement._id}
+                            whileHover={{ scale: 1.03 }}
+                            className={`p-5 rounded-2xl border backdrop-blur-md transition-all ${colors.bg} ${colors.border}`}
+                          >
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${colors.iconBg} border ${colors.border}`}>
+                              <IconComponent className={`w-6 h-6 ${colors.text}`} />
+                            </div>
+                            <p className={`text-sm font-bold mb-1 ${colors.text}`}>{achievement.name}</p>
+                            <p className="text-xs text-[var(--text-muted)] leading-snug mb-2">{achievement.description}</p>
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${colors.text}`}>
+                                +{achievement.bonusPoints} pts
+                              </span>
+                              {achievement.unlockedAt && (
+                                <span className="text-[10px] text-[var(--text-muted)]">
+                                  {new Date(achievement.unlockedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                          </motion.div>
+                        )
+                      }
+
+                      const hasProgress = achievement.progressMax > 1 && achievement.progress > 0
+                      const pct = achievement.progressMax > 0
+                        ? Math.min(100, (achievement.progress / achievement.progressMax) * 100)
+                        : 0
+
+                      return (
+                        <div key={achievement._id} className="p-5 rounded-2xl border bg-white/3 border-white/8 opacity-60">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-white/5 border border-white/10 relative">
+                            <IconComponent className="w-6 h-6 text-[var(--text-muted)] grayscale" />
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--glass-bg)] border border-white/20 flex items-center justify-center">
+                              <Lock className="w-2.5 h-2.5 text-[var(--text-muted)]" />
+                            </div>
+                          </div>
+                          <p className="text-sm font-bold mb-1 text-[var(--text-muted)]">{achievement.name}</p>
+                          <p className="text-xs text-[var(--text-muted)] leading-snug mb-2 opacity-70">???</p>
+                          {hasProgress && (
+                            <div className="mb-2">
+                              <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-white/30 transition-all duration-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                                {achievement.progress}/{achievement.progressMax}
+                              </p>
+                            </div>
+                          )}
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                            +{achievement.bonusPoints} pts
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {Array.isArray(userAchievements) && userAchievements.length === 0 && (
+                  <div className="text-center py-10 px-5 rounded-2xl border border-[var(--glass-border)] mt-4">
+                    <Trophy className="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
+                    <p className="text-sm text-[var(--text-muted)]">Achievements are being set up — check back shortly.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Achievements Section */}
+      {/* Rewards Section — Coming Soon */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Achievements</h2>
-          {Array.isArray(userAchievements) && userAchievements.length > 0 && (
-            <span className="text-sm text-[var(--text-muted)]">
-              {userAchievements.filter((a: any) => a.unlocked).length}/{userAchievements.length} unlocked
-            </span>
-          )}
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Rewards</h2>
+
+        {/* Points balance */}
+        <div className="rounded-2xl border border-purple-500/30 p-8 text-center"
+          style={{ background: 'linear-gradient(to right, rgba(168,85,247,0.1), rgba(59,130,246,0.1))' }}
+        >
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Zap className="w-7 h-7 text-purple-400 fill-purple-400" />
+            <span className="text-5xl font-black text-[var(--text-primary)]">{userData?.totalPoints ?? 0}</span>
+          </div>
+          <p className="text-sm text-[var(--text-muted)]">Available Points</p>
         </div>
 
-        {/* Loading skeleton */}
-        {userAchievements === undefined && !achievementsTimedOut && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="h-36 rounded-2xl bg-white/5 animate-pulse" />
+        {/* Coming soon card */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
+          <div className="max-w-sm mx-auto">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 relative"
+              style={{ background: 'linear-gradient(to bottom right, #7c3aed, #a855f7)' }}
+            >
+              <Gift className="w-10 h-10 text-white" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-yellow-900" />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Rewards Coming Soon</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-8 leading-relaxed">
+              We're building something exciting. Keep earning points — they'll be ready to spend when rewards launch.
+            </p>
+            <div className="grid grid-cols-3 gap-3 mb-8">
+              {[
+                { icon: Trophy,   color: 'text-purple-400', bg: 'bg-purple-500/20', label: 'Profile Badges',  sub: 'Show off milestones' },
+                { icon: Sparkles, color: 'text-blue-400',   bg: 'bg-blue-500/20',   label: 'Custom Themes',  sub: 'Personalize your dash' },
+                { icon: Gift,     color: 'text-green-400',  bg: 'bg-green-500/20',  label: 'Special Perks',  sub: 'Exclusive features' },
+              ].map(({ icon: Icon, color, bg, label, sub }) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className={`w-10 h-10 ${bg} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                    <Icon className={`w-5 h-5 ${color}`} />
+                  </div>
+                  <p className="text-xs font-semibold text-[var(--text-primary)] mb-0.5">{label}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] leading-tight">{sub}</p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+              <p className="text-xs text-blue-300 leading-relaxed">
+                <span className="font-bold">Keep earning!</span> Your points are safe and will be ready to spend when rewards launch.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* How to earn */}
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h3 className="text-base font-bold text-[var(--text-primary)] mb-4">How to Earn More Points</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { icon: Trophy,   bg: 'bg-green-500/20',  color: 'text-green-400',  title: 'Complete Assignments', sub: 'Earn 10–20 pts per submission' },
+              { icon: Sparkles, bg: 'bg-purple-500/20', color: 'text-purple-400', title: 'Daily Challenges',     sub: 'Bonus pts for extra goals' },
+              { icon: Lock,     bg: 'bg-yellow-500/20', color: 'text-yellow-400', title: 'Unlock Achievements',  sub: 'Milestone rewards add up' },
+              { icon: Zap,      bg: 'bg-orange-500/20', color: 'text-orange-400', title: 'Maintain Streaks',     sub: 'Multiplier bonuses stack' },
+            ].map(({ icon: Icon, bg, color, title, sub }) => (
+              <div key={title} className="flex items-start gap-3">
+                <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center shrink-0`}>
+                  <Icon className={`w-4 h-4 ${color}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{sub}</p>
+                </div>
+              </div>
             ))}
           </div>
-        )}
-
-        {/* Timeout error state */}
-        {achievementsTimedOut && (
-          <div className="text-center py-10 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-red-500/20">
-            <Trophy className="w-10 h-10 mx-auto mb-3 text-red-400/50" />
-            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Failed to load achievements</p>
-            <p className="text-xs text-[var(--text-muted)] mb-3">Check the browser console for details.</p>
-            <button
-              onClick={() => { setAchievementsTimedOut(false) }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[var(--text-muted)] hover:text-white transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {Array.isArray(userAchievements) && userAchievements.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {userAchievements.map((achievement: any) => {
-              const colors = ACHIEVEMENT_COLOR_MAP[achievement.color] ?? ACHIEVEMENT_COLOR_MAP.purple
-              const IconComponent = ACHIEVEMENT_ICON_MAP[achievement.icon] ?? Star
-
-              if (achievement.unlocked) {
-                return (
-                  <motion.div
-                    key={achievement._id}
-                    whileHover={{ scale: 1.03 }}
-                    className={`p-5 rounded-2xl border backdrop-blur-md transition-all ${colors.bg} ${colors.border}`}
-                  >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${colors.iconBg} border ${colors.border}`}>
-                      <IconComponent className={`w-6 h-6 ${colors.text}`} />
-                    </div>
-                    <p className={`text-sm font-bold mb-1 ${colors.text}`}>{achievement.name}</p>
-                    <p className="text-xs text-[var(--text-muted)] leading-snug mb-2">
-                      {achievement.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${colors.text}`}>
-                        +{achievement.bonusPoints} pts
-                      </span>
-                      {achievement.unlockedAt && (
-                        <span className="text-[10px] text-[var(--text-muted)]">
-                          {new Date(achievement.unlockedAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                )
-              }
-
-              // Locked state
-              const hasProgress = achievement.progressMax > 1 && achievement.progress > 0
-              const pct = achievement.progressMax > 0
-                ? Math.min(100, (achievement.progress / achievement.progressMax) * 100)
-                : 0
-
-              return (
-                <div
-                  key={achievement._id}
-                  className="p-5 rounded-2xl border bg-white/3 border-white/8 opacity-60"
-                >
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-white/5 border border-white/10 relative">
-                    <IconComponent className="w-6 h-6 text-[var(--text-muted)] grayscale" />
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--glass-bg)] border border-white/20 flex items-center justify-center">
-                      <Lock className="w-2.5 h-2.5 text-[var(--text-muted)]" />
-                    </div>
-                  </div>
-                  <p className="text-sm font-bold mb-1 text-[var(--text-muted)]">{achievement.name}</p>
-                  <p className="text-xs text-[var(--text-muted)] leading-snug mb-2 opacity-70">???</p>
-
-                  {/* Progress bar (only for trackable multi-step achievements) */}
-                  {hasProgress && (
-                    <div className="mb-2">
-                      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-white/30 transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                        {achievement.progress}/{achievement.progressMax}
-                      </p>
-                    </div>
-                  )}
-
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                    +{achievement.bonusPoints} pts
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        ) : Array.isArray(userAchievements) && userAchievements.length === 0 ? (
-          <div className="text-center py-12 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
-            <Trophy className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
-            <p className="text-[var(--text-muted)] text-sm">
-              Achievements are being set up — check back shortly.
-            </p>
-          </div>
-        ) : null}
+        </div>
       </div>
 
       {/* Canvas Integration */}
