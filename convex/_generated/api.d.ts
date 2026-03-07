@@ -12,6 +12,7 @@ import type * as achievements from "../achievements.js";
 import type * as assignments from "../assignments.js";
 import type * as challenges from "../challenges.js";
 import type * as courses from "../courses.js";
+import type * as crons from "../crons.js";
 import type * as customTasks from "../customTasks.js";
 import type * as files from "../files.js";
 import type * as leaderboard from "../leaderboard.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   assignments: typeof assignments;
   challenges: typeof challenges;
   courses: typeof courses;
+  crons: typeof crons;
   customTasks: typeof customTasks;
   files: typeof files;
   leaderboard: typeof leaderboard;

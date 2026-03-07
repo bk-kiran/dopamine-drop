@@ -1,4 +1,4 @@
-import { mutation, query } from './_generated/server'
+import { mutation, query, internalMutation } from './_generated/server'
 import { v } from 'convex/values'
 
 // Helper: get user by Clerk ID
@@ -69,19 +69,27 @@ const CHALLENGE_SEED_DATA = [
   { title: 'Daily Doer', description: 'Complete at least 1 task every day for 5 days', type: 'consistency', targetValue: 5, bonusPoints: 35, difficulty: 'hard' },
 ] as const
 
+// Shared seed logic (used by both public mutation and internal mutation)
+async function seedPoolIfEmpty(ctx: any): Promise<{ seeded: number } | { skipped: true }> {
+  const existing = await ctx.db.query('challengePool').first()
+  if (existing) return { skipped: true }
+
+  for (const challenge of CHALLENGE_SEED_DATA) {
+    await ctx.db.insert('challengePool', challenge)
+  }
+  return { seeded: CHALLENGE_SEED_DATA.length }
+}
+
+// Public mutation — can be called manually (idempotent)
 export const seedChallengePool = mutation({
   args: {},
-  handler: async (ctx) => {
-    // Idempotent: skip if already seeded
-    const existing = await ctx.db.query('challengePool').first()
-    if (existing) return { skipped: true, message: 'Pool already seeded' }
+  handler: async (ctx) => seedPoolIfEmpty(ctx),
+})
 
-    for (const challenge of CHALLENGE_SEED_DATA) {
-      await ctx.db.insert('challengePool', challenge)
-    }
-
-    return { seeded: CHALLENGE_SEED_DATA.length }
-  },
+// Internal mutation — called by cron
+export const autoSeedChallengePool = internalMutation({
+  args: {},
+  handler: async (ctx) => seedPoolIfEmpty(ctx),
 })
 
 // ─── Generate today's challenges for a user ─────────────────────────────────
@@ -107,8 +115,12 @@ export const generateDailyChallenges = mutation({
       await ctx.db.delete(e._id)
     }
 
-    // Pull the full pool
-    const pool = await ctx.db.query('challengePool').collect()
+    // Pull the full pool — auto-seed if empty so first-time users see challenges immediately
+    let pool = await ctx.db.query('challengePool').collect()
+    if (pool.length === 0) {
+      await seedPoolIfEmpty(ctx)
+      pool = await ctx.db.query('challengePool').collect()
+    }
     if (pool.length === 0) return
 
     // Get challenges shown in last 7 days

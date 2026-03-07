@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Loader2, Check, AlertCircle, Link as LinkIcon } from 'lucide-react'
+import { X, Loader2, Check, AlertCircle, Link as LinkIcon, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
 import { CourseSelectionModal, SyncedCourse } from './course-selection-modal'
@@ -21,10 +21,12 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
   const [syncSummary, setSyncSummary] = useState<string | null>(null)
   const [syncedCourses, setSyncedCourses] = useState<SyncedCourse[]>([])
   const [showCourseSelection, setShowCourseSelection] = useState(false)
+  const [syncError, setSyncError] = useState<{ message: string; code: string; retryable: boolean } | null>(null)
 
   const handleConnect = async () => {
     if (!token.trim()) return
 
+    setSyncError(null)
     setIsConnecting(true)
     setSyncStep('connecting')
 
@@ -38,7 +40,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
 
       if (!connectRes.ok) {
         const err = await connectRes.json()
-        throw new Error(err.error || 'Failed to connect Canvas')
+        throw { message: err.userMessage || err.error || 'Failed to connect Canvas', code: err.code || 'SYNC_FAILED', retryable: err.retryable !== false }
       }
 
       // Step 2: Sync data (mark as initial sync so server applies 7-day filter)
@@ -51,7 +53,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
       })
       const syncData = await syncRes.json()
 
-      if (!syncRes.ok) throw new Error(syncData.error || 'Sync failed')
+      if (!syncRes.ok) throw { message: syncData.userMessage || syncData.error || 'Sync failed', code: syncData.code || 'SYNC_FAILED', retryable: syncData.retryable !== false }
 
       // Step 3: Complete — show course selection if courses were returned
       setSyncStep('complete')
@@ -70,7 +72,10 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
         toast({ description: 'Canvas connected and synced!', duration: 3000 })
       }
     } catch (err: any) {
-      toast({ description: err.message || 'Failed to connect Canvas', variant: 'destructive', duration: 4000 })
+      const code = err?.code || 'SYNC_FAILED'
+      const message = err?.userMessage || err?.message || 'Failed to connect Canvas'
+      const retryable = err?.retryable !== false
+      setSyncError({ message, code, retryable })
       setIsConnecting(false)
       setSyncStep(null)
     }
@@ -90,6 +95,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
     setSyncSummary(null)
     setSyncedCourses([])
     setShowCourseSelection(false)
+    setSyncError(null)
     onClose()
   }
 
@@ -107,7 +113,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
         {isOpen && !showCourseSelection && (
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={syncStep === null ? handleClose : undefined}
+            onClick={syncStep === null && !syncError ? handleClose : undefined}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -117,7 +123,47 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
               onClick={(e) => e.stopPropagation()}
               className="bg-(--bg-secondary,#0F0A1E) border border-white/10 rounded-2xl w-full max-w-md"
             >
-              {syncStep ? (
+              {syncError ? (
+                /* ── Error view ── */
+                <div className="p-8 text-center">
+                  <div className="w-14 h-14 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
+                    <AlertCircle className="w-7 h-7 text-red-400" />
+                  </div>
+
+                  <h2 className="text-xl font-bold text-white mb-2">
+                    {syncError.code === 'INVALID_TOKEN' ? 'Invalid Token' : 'Connection Failed'}
+                  </h2>
+
+                  <p className="text-sm text-white/60 mb-5">{syncError.message}</p>
+
+                  {syncError.code === 'INVALID_TOKEN' && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-5 text-left">
+                      <p className="text-xs text-yellow-300 leading-relaxed">
+                        <span className="font-bold">How to fix:</span> Go to Canvas → Account → Settings,
+                        delete the old access token, create a new one, and paste it here.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleClose}
+                      className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-sm font-medium transition-colors"
+                    >
+                      Close
+                    </button>
+                    {syncError.retryable && (
+                      <button
+                        onClick={() => { setSyncError(null) }}
+                        className="flex-1 py-2.5 bg-linear-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Try Again
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : syncStep ? (
                 /* ── Progress view ── */
                 <div className="p-8 text-center">
                   <div className="w-14 h-14 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-5">

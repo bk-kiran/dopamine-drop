@@ -9,6 +9,7 @@ import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { logSecurityEvent, logInternalError } from '@/lib/logger'
+import { handleCanvasError } from '@/lib/error-handling'
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +75,22 @@ export async function POST(request: NextRequest) {
 
     // Create Canvas client and fetch courses
     const canvasClient = new CanvasClient(canvasBaseUrl, canvasToken)
-    const courses = await canvasClient.getCourses()
+    let courses
+    try {
+      courses = await canvasClient.getCourses()
+    } catch (canvasErr) {
+      const structured = handleCanvasError(canvasErr)
+      logInternalError('Canvas Sync getCourses', canvasErr, { userId })
+      return NextResponse.json(
+        {
+          error: structured.message,
+          code: structured.code,
+          userMessage: structured.userMessage,
+          retryable: structured.retryable,
+        },
+        { status: structured.code === 'INVALID_TOKEN' ? 401 : 502 }
+      )
+    }
 
     console.log(`[Canvas Sync] Found ${courses.length} courses for user ${userId}`)
 
@@ -310,8 +326,14 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     logInternalError('Canvas Sync', error)
+    const structured = handleCanvasError(error)
     return NextResponse.json(
-      { error: 'An unexpected error occurred during sync' },
+      {
+        error: structured.message,
+        code: structured.code,
+        userMessage: structured.userMessage,
+        retryable: structured.retryable,
+      },
       { status: 500 }
     )
   }

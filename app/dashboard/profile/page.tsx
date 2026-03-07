@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
   const [showConnectCanvas, setShowConnectCanvas] = useState(false)
+  const [achievementsTimedOut, setAchievementsTimedOut] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -86,6 +87,21 @@ export default function ProfilePage() {
     supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
   )
 
+  // Detect if achievements query is stuck (undefined after 6s)
+  useEffect(() => {
+    if (userAchievements !== undefined) {
+      setAchievementsTimedOut(false)
+      return
+    }
+    const timer = setTimeout(() => {
+      if (userAchievements === undefined) {
+        console.error('[Profile] Achievements query timed out — no response after 6s')
+        setAchievementsTimedOut(true)
+      }
+    }, 6000)
+    return () => clearTimeout(timer)
+  }, [userAchievements])
+
   // Get avatar URL
   const avatarUrl = useQuery(
     api.users.getAvatarUrl,
@@ -97,6 +113,14 @@ export default function ProfilePage() {
   const updateAvatar = useMutation(api.users.updateAvatar)
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
   const setXpMultiplierDay = useMutation(api.users.setXpMultiplierDay)
+  const seedAchievements = useMutation(api.achievements.seedAchievements)
+
+  // Auto-seed achievements pool if it came back empty
+  useEffect(() => {
+    if (Array.isArray(userAchievements) && userAchievements.length === 0 && supabaseUserId) {
+      seedAchievements({}).catch(console.error)
+    }
+  }, [userAchievements, supabaseUserId])
 
   // Get initials
   const getInitials = () => {
@@ -550,12 +574,36 @@ export default function ProfilePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">Achievements</h2>
-          {Array.isArray(userAchievements) && (
+          {Array.isArray(userAchievements) && userAchievements.length > 0 && (
             <span className="text-sm text-[var(--text-muted)]">
               {userAchievements.filter((a: any) => a.unlocked).length}/{userAchievements.length} unlocked
             </span>
           )}
         </div>
+
+        {/* Loading skeleton */}
+        {userAchievements === undefined && !achievementsTimedOut && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-36 rounded-2xl bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {/* Timeout error state */}
+        {achievementsTimedOut && (
+          <div className="text-center py-10 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-red-500/20">
+            <Trophy className="w-10 h-10 mx-auto mb-3 text-red-400/50" />
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Failed to load achievements</p>
+            <p className="text-xs text-[var(--text-muted)] mb-3">Check the browser console for details.</p>
+            <button
+              onClick={() => { setAchievementsTimedOut(false) }}
+              className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[var(--text-muted)] hover:text-white transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {Array.isArray(userAchievements) && userAchievements.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -595,10 +643,15 @@ export default function ProfilePage() {
               }
 
               // Locked state
+              const hasProgress = achievement.progressMax > 1 && achievement.progress > 0
+              const pct = achievement.progressMax > 0
+                ? Math.min(100, (achievement.progress / achievement.progressMax) * 100)
+                : 0
+
               return (
                 <div
                   key={achievement._id}
-                  className="p-5 rounded-2xl border bg-white/3 border-white/8 opacity-50"
+                  className="p-5 rounded-2xl border bg-white/3 border-white/8 opacity-60"
                 >
                   <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-white/5 border border-white/10 relative">
                     <IconComponent className="w-6 h-6 text-[var(--text-muted)] grayscale" />
@@ -608,6 +661,22 @@ export default function ProfilePage() {
                   </div>
                   <p className="text-sm font-bold mb-1 text-[var(--text-muted)]">{achievement.name}</p>
                   <p className="text-xs text-[var(--text-muted)] leading-snug mb-2 opacity-70">???</p>
+
+                  {/* Progress bar (only for trackable multi-step achievements) */}
+                  {hasProgress && (
+                    <div className="mb-2">
+                      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-white/30 transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                        {achievement.progress}/{achievement.progressMax}
+                      </p>
+                    </div>
+                  )}
+
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                     +{achievement.bonusPoints} pts
                   </span>
@@ -615,14 +684,14 @@ export default function ProfilePage() {
               )
             })}
           </div>
-        ) : (
+        ) : Array.isArray(userAchievements) && userAchievements.length === 0 ? (
           <div className="text-center py-12 px-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)]">
             <Trophy className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
             <p className="text-[var(--text-muted)] text-sm">
-              Achievements will appear here once the pool is seeded.
+              Achievements are being set up — check back shortly.
             </p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Canvas Integration */}
