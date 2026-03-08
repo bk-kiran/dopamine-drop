@@ -9,10 +9,10 @@ A full-stack gamified academic productivity platform that syncs with Canvas LMS 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Convex](https://img.shields.io/badge/Convex-Real--Time-EF4444?style=flat-square)](https://convex.dev/)
-[![Vercel](https://img.shields.io/badge/Deployment-Coming%20Soon-gray?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com/)
+[![Vercel](https://img.shields.io/badge/Deployment-Live-brightgreen?style=flat-square&logo=vercel&logoColor=white)](https://dopamine-drop.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[Live Demo](#) &nbsp;·&nbsp; [Architecture](#️-architecture) &nbsp;·&nbsp; [Tech Stack](#️-tech-stack)
+[Live Demo](https://dopamine-drop.vercel.app) &nbsp;·&nbsp; [Architecture](#️-architecture) &nbsp;·&nbsp; [Tech Stack](#️-tech-stack)
 
 </div>
 
@@ -303,7 +303,7 @@ git push origin main  # triggers auto-deploy
 npx convex deploy
 ```
 
-## ⚠️ Note: Live deployment is coming soon. The app is fully functional locally and Vercel deployment is in progress as final bug fixes are completed.
+## ✅ Live at [dopamine-drop.vercel.app](https://dopamine-drop.vercel.app)
 
 ### Full-Stack Engineering
 
@@ -313,7 +313,7 @@ npx convex deploy
 
 ### System Design
 
-- Architected hybrid auth system (Supabase + Convex) balancing security and developer experience
+- Architected auth system (Clerk + Convex) balancing security and developer experience
 - Implemented distributed rate limiting with Upstash Redis across edge functions
 - Designed scalable gamification engine processing thousands of events/day within free-tier limits
 
