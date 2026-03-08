@@ -10,6 +10,25 @@ import { validateInput, canvasTokenSchema } from '@/lib/validation'
 import { logSecurityEvent, logInternalError } from '@/lib/logger'
 
 export async function POST(request: Request) {
+  // DEBUG: Log environment variable presence (no secret values exposed)
+  console.log('=== CANVAS CONNECT DEBUG ===')
+  console.log('Environment Variables Check:', {
+    NEXT_PUBLIC_CANVAS_BASE_URL: process.env.NEXT_PUBLIC_CANVAS_BASE_URL
+      ? `✓ SET (${process.env.NEXT_PUBLIC_CANVAS_BASE_URL})`
+      : '✗ MISSING',
+    CANVAS_ENCRYPTION_SECRET: process.env.CANVAS_ENCRYPTION_SECRET
+      ? `✓ SET (length: ${process.env.CANVAS_ENCRYPTION_SECRET.length})`
+      : '✗ MISSING',
+    NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL
+      ? '✓ SET'
+      : '✗ MISSING',
+    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY
+      ? `✓ SET (starts with: ${process.env.CLERK_SECRET_KEY.substring(0, 7)})`
+      : '✗ MISSING',
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV ?? 'not set (local?)',
+  })
+
   try {
     // Rate-limit by IP (user may not be authenticated yet)
     const ip = getClientIp(request)
@@ -34,12 +53,14 @@ export async function POST(request: Request) {
 
     const canvasBaseUrl = process.env.NEXT_PUBLIC_CANVAS_BASE_URL
     if (!canvasBaseUrl) {
+      console.error('❌ NEXT_PUBLIC_CANVAS_BASE_URL is missing!')
       logInternalError('Canvas Connect', 'NEXT_PUBLIC_CANVAS_BASE_URL is not set')
       return NextResponse.json(
-        { error: 'Canvas configuration is missing' },
+        { error: 'Canvas configuration is missing: NEXT_PUBLIC_CANVAS_BASE_URL not set' },
         { status: 500 }
       )
     }
+    console.log('✅ All required environment variables present')
 
     // Validate token against Canvas API
     const canvasClient = new CanvasClient(canvasBaseUrl, token)

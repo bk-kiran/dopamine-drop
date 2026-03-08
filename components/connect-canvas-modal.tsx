@@ -26,26 +26,35 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
   const handleConnect = async () => {
     if (!token.trim()) return
 
+    // DEBUG: client-side environment check
+    console.log('=== CLIENT DEBUG ===')
+    console.log('NEXT_PUBLIC_CONVEX_URL:', process.env.NEXT_PUBLIC_CONVEX_URL || 'MISSING')
+    console.log('Token length:', token.trim().length)
+
     setSyncError(null)
     setIsConnecting(true)
     setSyncStep('connecting')
 
     try {
       // Step 1: Connect Canvas account
+      console.log('Sending request to /api/canvas/connect...')
       const connectRes = await fetch('/api/canvas/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token.trim() }),
       })
 
+      console.log('Connect response status:', connectRes.status)
       if (!connectRes.ok) {
         const err = await connectRes.json()
+        console.error('Connect error response:', err)
         throw { message: err.userMessage || err.error || 'Failed to connect Canvas', code: err.code || 'SYNC_FAILED', retryable: err.retryable !== false }
       }
 
       // Step 2: Sync data (mark as initial sync so server applies 7-day filter)
       setSyncStep('syncing')
 
+      console.log('Sending request to /api/canvas/sync...')
       const syncRes = await fetch('/api/canvas/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,6 +62,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
       })
       const syncData = await syncRes.json()
 
+      console.log('Sync response status:', syncRes.status, syncData)
       if (!syncRes.ok) throw { message: syncData.userMessage || syncData.error || 'Sync failed', code: syncData.code || 'SYNC_FAILED', retryable: syncData.retryable !== false }
 
       // Step 3: Complete — show course selection if courses were returned
@@ -72,6 +82,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
         toast({ description: 'Canvas connected and synced!', duration: 3000 })
       }
     } catch (err: any) {
+      console.error('=== CONNECT ERROR ===', err)
       const code = err?.code || 'SYNC_FAILED'
       const message = err?.userMessage || err?.message || 'Failed to connect Canvas'
       const retryable = err?.retryable !== false
