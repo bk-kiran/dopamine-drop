@@ -11,6 +11,7 @@ type SecurityEventType =
   | 'invalid_input'
   | 'unauthorized'
   | 'suspicious'
+  | 'duplicate_canvas_account'
 
 export function logSecurityEvent(
   event: SecurityEventType,
