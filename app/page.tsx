@@ -206,6 +206,8 @@ function MockupCard() {
 export default function LandingPage() {
   const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
+  const featuresRef = useRef<HTMLDivElement>(null)
+  const featuresInView = useInView(featuresRef, { once: true, margin: '-100px' })
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -214,9 +216,6 @@ export default function LandingPage() {
   }, [isLoaded, isSignedIn, router])
 
   if (!isLoaded || isSignedIn) return null
-
-  const featuresRef = useRef<HTMLDivElement>(null)
-  const featuresInView = useInView(featuresRef, { once: true, margin: '-100px' })
 
   const heroVariants = {
     hidden: { opacity: 0, y: 30 },
