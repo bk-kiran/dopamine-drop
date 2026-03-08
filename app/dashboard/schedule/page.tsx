@@ -232,7 +232,7 @@ export default function SchedulePage() {
 
     // Canvas assignments - check status first
     // Submitted/completed = green
-    if (item.status === 'submitted' || item.status === 'graded' || item.manuallyCompleted) {
+    if (item.status === 'submitted' || item.manuallyCompleted) {
       return {
         border: 'border-green-500',
         bg: 'bg-green-500/10',

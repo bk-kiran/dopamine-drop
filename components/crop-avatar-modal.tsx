@@ -13,13 +13,13 @@ import {
 import { Button } from '@/components/ui/button'
 
 interface CropAvatarModalProps {
-  open: boolean
-  onClose: () => void
+  open?: boolean
+  onCancel: () => void
   imageSrc: string
   onSave: (croppedBlob: Blob) => Promise<void>
 }
 
-export function CropAvatarModal({ open, onClose, imageSrc, onSave }: CropAvatarModalProps) {
+export function CropAvatarModal({ open = true, onCancel, imageSrc, onSave }: CropAvatarModalProps) {
   const [crop, setCrop] = useState<Crop>({
     unit: '%',
     x: 25,
@@ -92,7 +92,7 @@ export function CropAvatarModal({ open, onClose, imageSrc, onSave }: CropAvatarM
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onCancel}>
       <DialogContent className="sm:max-w-[500px] bg-[var(--glass-bg)] backdrop-blur-md border-[var(--glass-border)]">
         <DialogHeader>
           <DialogTitle className="text-[var(--text-primary)]">Crop Profile Photo</DialogTitle>
@@ -120,7 +120,7 @@ export function CropAvatarModal({ open, onClose, imageSrc, onSave }: CropAvatarM
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={onCancel}
             disabled={isUploading}
           >
             Cancel

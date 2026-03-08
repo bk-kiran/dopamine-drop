@@ -87,6 +87,7 @@ async function seedRewards() {
   for (const reward of sampleRewards) {
     try {
       await convex.mutation(api.rewards.create, {
+        type: 'virtual' as const,
         name: reward.name,
         description: reward.description,
         rarity: reward.rarity,

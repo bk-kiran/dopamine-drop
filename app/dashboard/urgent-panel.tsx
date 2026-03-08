@@ -149,8 +149,8 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
 
   const reorderUrgentAssignments = useMutation(api.assignments.reorderUrgentAssignments)
   const reorderUrgentCustomTasks = useMutation(api.customTasks.reorderUrgentCustomTasks)
-  const completeAssignment = useMutation(api.assignments.completeAssignment)
-  const uncompleteAssignment = useMutation(api.assignments.uncompleteAssignment)
+  const completeAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
+  const uncompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const completeCustomTask = useMutation(api.customTasks.completeCustomTask)
   const uncompleteCustomTask = useMutation(api.customTasks.uncompleteCustomTask)
 
@@ -177,8 +177,12 @@ export function UrgentPanel({ supabaseUserId, isOpen, onClose }: UrgentPanelProp
   }))
 
   // Combine Canvas assignments and custom tasks, sorted by urgentOrder
-  const combinedUrgent = [
-    ...(visibleUrgentAssignments || []),
+  const combinedUrgent: UrgentAssignment[] = [
+    ...(visibleUrgentAssignments || []).map((a) => ({
+      ...a,
+      dueAt: a.dueAt ?? null,
+      urgentOrder: a.urgentOrder ?? 0,
+    })),
     ...formattedCustomTasks,
   ].sort((a, b) => (a.urgentOrder || 0) - (b.urgentOrder || 0))
 

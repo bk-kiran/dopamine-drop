@@ -71,7 +71,7 @@ export const RightSidebarBody = ({ className, children, ...props }: React.Compon
         {children}
       </DesktopRightSidebar>
       <MobileRightSidebar {...(props as React.ComponentProps<"div">)}>
-        {children}
+        {children as React.ReactNode}
       </MobileRightSidebar>
     </>
   );
@@ -124,7 +124,7 @@ export const DesktopRightSidebar = ({
 
       {/* Scrollable content below toggle */}
       <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-        {children}
+        {children as React.ReactNode}
       </div>
     </motion.div>
   );

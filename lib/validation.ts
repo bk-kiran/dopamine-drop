@@ -76,7 +76,7 @@ export function validateInput<T>(
   if (result.success) return { success: true, data: result.data }
   return {
     success: false,
-    error: result.error.errors[0]?.message ?? 'Validation failed',
+    error: result.error.issues[0]?.message ?? 'Validation failed',
   }
 }
 
