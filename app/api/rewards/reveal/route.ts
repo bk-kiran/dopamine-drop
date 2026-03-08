@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getConvexClient, getConvexUserId } from '@/lib/convex-client'
 import { api } from '@/convex/_generated/api'
+import { Id } from '@/convex/_generated/dataModel'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateInput, rewardRevealSchema } from '@/lib/validation'
 import { logSecurityEvent, logInternalError } from '@/lib/logger'
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
 
       await convex.mutation(api.rewards.revealReward, {
         userId: convexUserId,
-        rewardId,
+        rewardId: rewardId as Id<'rewards'>,
       })
 
       return NextResponse.json({ success: true })
