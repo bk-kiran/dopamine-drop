@@ -16,8 +16,10 @@ import {
   Star,
   Zap,
 } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { BentoCard, BentoGrid } from '@/components/ui/bento-grid'
 import { MiniNavbar } from '@/components/ui/mini-navbar'
 
@@ -202,6 +204,17 @@ function MockupCard() {
 // ─── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  const { isSignedIn, isLoaded } = useUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace('/dashboard')
+    }
+  }, [isLoaded, isSignedIn, router])
+
+  if (!isLoaded || isSignedIn) return null
+
   const featuresRef = useRef<HTMLDivElement>(null)
   const featuresInView = useInView(featuresRef, { once: true, margin: '-100px' })
 

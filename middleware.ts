@@ -22,10 +22,12 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Redirect authenticated users away from auth pages
-  const isAuthPage =
-    request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup'
-  if (isAuthPage && userId) {
+  // Redirect authenticated users away from auth/landing pages
+  const isAuthOrLandingPage =
+    request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname === '/login' ||
+    request.nextUrl.pathname === '/signup'
+  if (isAuthOrLandingPage && userId) {
     const dashboardUrl = new URL('/dashboard', request.url)
     return NextResponse.redirect(dashboardUrl)
   }
