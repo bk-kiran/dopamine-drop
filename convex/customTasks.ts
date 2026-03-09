@@ -294,6 +294,14 @@ export const uncompleteCustomTask = mutation({
     if (!task || task.userId !== user._id) throw new Error('Task not found')
     if (task.status === 'pending') throw new Error('Task is not completed')
 
+    // Enforce 14-day untick window
+    if (task.completedAt) {
+      const age = Date.now() - new Date(task.completedAt).getTime()
+      if (age > 14 * 24 * 60 * 60 * 1000) {
+        throw new Error('Cannot untick — completed over 2 weeks ago')
+      }
+    }
+
     // Find and remove ledger entries for this custom task
     const ledgerEntries = await ctx.db
       .query('pointsLedger')

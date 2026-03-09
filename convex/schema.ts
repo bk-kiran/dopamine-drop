@@ -66,6 +66,7 @@ export default defineSchema({
     submittedAt: v.optional(v.string()), // ISO timestamp
     canvasCourseId: v.string(), // Denormalized for faster queries
     manuallyCompleted: v.optional(v.boolean()), // Manual tick-off by user
+    manuallyCompletedAt: v.optional(v.string()), // ISO timestamp when manually completed
     isUrgent: v.optional(v.boolean()), // Marked as urgent by user
     urgentOrder: v.optional(v.float64()), // Order in urgent list (for drag-drop)
     userNotes: v.optional(v.string()), // Personal notes on the assignment

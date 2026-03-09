@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Star, Flame, CheckCircle2, Circle, Check, Loader2, BookOpen, Users, Briefcase, Heart } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { getUntickStatus, getUntickTooltip } from '@/lib/taskUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ export interface ModalAssignment {
   pointsPossible: number
   status: 'pending' | 'submitted' | 'missing'
   manuallyCompleted?: boolean
+  manuallyCompletedAt?: string | null
   isUrgent?: boolean
   courseName: string
   userNotes?: string
@@ -40,6 +43,7 @@ export interface ModalCustomTask {
   dueAt?: string | null
   pointsValue: number
   status: 'pending' | 'completed'
+  completedAt?: string | null
   isUrgent?: boolean
   category: Category
   userNotes?: string
@@ -372,7 +376,7 @@ export function AssignmentDetailsModal({
           </div>
 
           {/* Quick actions footer */}
-          {(isPending || isCompleted || item.isUrgent) && (
+          {(isPending || isCompleted || isCanvasSubmitted || item.isUrgent) && (
             <div className="flex items-center gap-2 pt-1 border-t border-white/10 flex-wrap">
               {/* Mark Complete */}
               {isPending && !isCanvasSubmitted && (
@@ -390,21 +394,51 @@ export function AssignmentDetailsModal({
                 </button>
               )}
 
-              {/* Untick (manually completed only) */}
-              {isCompleted && (
-                <button
-                  onClick={handleUntick}
-                  disabled={isActioning}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm font-semibold hover:bg-orange-500/30 transition-all disabled:opacity-50"
-                >
-                  {isActioning ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4" />
-                  )}
-                  Untick
-                </button>
-              )}
+              {/* Untick (completed tasks) */}
+              {(isCompleted || isCanvasSubmitted) && (() => {
+                const untickStatus = getUntickStatus({
+                  type: item.type === 'assignment' ? 'canvas' : 'custom',
+                  manuallyCompleted: item.type === 'assignment' ? item.manuallyCompleted : undefined,
+                  manuallyCompletedAt: item.type === 'assignment' ? item.manuallyCompletedAt : undefined,
+                  completedAt: item.type === 'customTask' ? item.completedAt : undefined,
+                })
+                if (!untickStatus.canUntick) {
+                  return (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <button
+                              disabled
+                              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/30 text-sm font-semibold cursor-not-allowed"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Untick
+                            </button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">{getUntickTooltip(untickStatus.reason)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )
+                }
+                return (
+                  <button
+                    onClick={handleUntick}
+                    disabled={isActioning}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400 text-sm font-semibold hover:bg-orange-500/30 transition-all disabled:opacity-50"
+                  >
+                    {isActioning ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    Untick
+                  </button>
+                )
+              })()}
 
               {/* Remove from Urgent */}
               {item.isUrgent && isPending && (

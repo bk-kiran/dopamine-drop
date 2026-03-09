@@ -256,6 +256,14 @@ export const unCompleteAssignment = mutation({
       throw new Error('Cannot untick assignments submitted on Canvas')
     }
 
+    // Enforce 14-day untick window
+    if (assignment.manuallyCompletedAt) {
+      const age = Date.now() - new Date(assignment.manuallyCompletedAt).getTime()
+      if (age > 14 * 24 * 60 * 60 * 1000) {
+        throw new Error('Cannot untick — completed over 2 weeks ago')
+      }
+    }
+
     // Note: We don't check status here because Canvas sync might have updated
     // the status to 'missing' after the user manually completed it
 
@@ -280,6 +288,7 @@ export const unCompleteAssignment = mutation({
       status: 'pending',
       manuallyCompleted: false,
       submittedAt: undefined,
+      manuallyCompletedAt: undefined,
     })
 
     return {
@@ -420,6 +429,7 @@ export const manuallyCompleteAssignment = mutation({
       status: 'submitted',
       submittedAt,
       manuallyCompleted: true,
+      manuallyCompletedAt: submittedAt,
       isUrgent: false, // Clear urgent flag when completed
     })
 

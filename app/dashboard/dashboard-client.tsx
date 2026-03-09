@@ -33,6 +33,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { formatCourseName } from '@/lib/course-utils'
 import { cn } from '@/lib/utils'
+import { getUntickStatus, getUntickTooltip } from '@/lib/taskUtils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface Assignment {
   _id: string
@@ -47,6 +49,7 @@ interface Assignment {
   courseName: string
   courseCode: string
   manuallyCompleted?: boolean
+  manuallyCompletedAt?: string
   isUrgent?: boolean
   urgentOrder?: number
 }
@@ -122,7 +125,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const { settings: dashSettings, saveSettings: saveDashSettings } = useDashboardSettings()
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null)
   const [uncompletingTaskId, setUncompletingTaskId] = useState<string | null>(null)
-  const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string } | null>(null)
+  const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string; type: 'canvas' | 'custom' } | null>(null)
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
@@ -150,6 +153,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const deleteCustomTask = useMutation(api.customTasks.deleteCustomTask)
   const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
   const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
+  const unCompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const toggleUrgentAssignment = useMutation(api.assignments.toggleUrgent)
   const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
   const checkAndAwardAchievements = useMutation(api.achievements.checkAndAwardAchievements)
@@ -279,16 +283,27 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   const handleConfirmUntickTask = async () => {
     if (!taskToUntick) return
-    setUncompletingTaskId(taskToUntick.id)
+    const { id, title, type } = taskToUntick
+    setUncompletingTaskId(id)
     setTaskToUntick(null)
     try {
-      const result = await uncompleteCustomTask({ taskId: taskToUntick.id as any, clerkId: supabaseUserId })
-      toast({
-        title: `Task unticked — ${result.pointsRemoved} pts removed`,
-        description: taskToUntick.title,
-        className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
-        duration: 4000,
-      })
+      if (type === 'canvas') {
+        const result = await unCompleteAssignment({ assignmentId: id as any, clerkId: supabaseUserId })
+        toast({
+          title: `Assignment unticked — ${result.pointsRemoved} pts removed`,
+          description: title,
+          className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
+          duration: 4000,
+        })
+      } else {
+        const result = await uncompleteCustomTask({ taskId: id as any, clerkId: supabaseUserId })
+        toast({
+          title: `Task unticked — ${result.pointsRemoved} pts removed`,
+          description: title,
+          className: 'bg-orange-50 border-orange-200 text-orange-900 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-100',
+          duration: 4000,
+        })
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally { setUncompletingTaskId(null) }
@@ -363,27 +378,50 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         task.isCompleted ? 'opacity-50 hover:opacity-70 hover:bg-white/[0.03]' : 'hover:bg-white/[0.05]'
       )}>
         {/* Checkbox */}
-        <button
-          onClick={() => {
-            if (task.isCompleted) {
-              if (task.type === 'custom') setTaskToUntick({ id: task.id, title: task.title })
-            } else {
+        {task.isCompleted ? (() => {
+          const untickStatus = getUntickStatus({
+            type: task.type === 'canvas' ? 'canvas' : 'custom',
+            manuallyCompleted: task.canvasData?.manuallyCompleted,
+            manuallyCompletedAt: task.canvasData?.manuallyCompletedAt,
+            completedAt: task.customData?.completedAt,
+          })
+          if (!untickStatus.canUntick) {
+            return (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-shrink-0 opacity-0 group-hover/task:opacity-100">
+                      <CheckCircle2 className="h-5 w-5 text-green-500/40 cursor-not-allowed" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">{getUntickTooltip(untickStatus.reason)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )
+          }
+          return (
+            <button
+              onClick={() => setTaskToUntick({ id: task.id, title: task.title, type: task.type === 'canvas' ? 'canvas' : 'custom' })}
+              disabled={isUncompleting}
+              className="flex-shrink-0 transition-colors opacity-0 group-hover/task:opacity-100 text-green-500 hover:text-orange-400"
+            >
+              {isUncompleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+            </button>
+          )
+        })() : (
+          <button
+            onClick={() => {
               if (task.type === 'custom') handleCompleteCustomTask(task.id, task.title)
               else handleCompleteCanvasTask(task.id, task.title)
-            }
-          }}
-          disabled={isCompleting || isUncompleting}
-          className={cn(
-            'flex-shrink-0 transition-colors opacity-0 group-hover/task:opacity-100',
-            task.isCompleted ? 'text-green-500 hover:text-orange-400' : 'text-gray-500 hover:text-green-500'
-          )}
-        >
-          {isCompleting || isUncompleting
-            ? <Loader2 className="h-5 w-5 animate-spin" />
-            : task.isCompleted
-              ? <CheckCircle2 className="h-5 w-5" />
-              : <Circle className="h-5 w-5" />}
-        </button>
+            }}
+            disabled={isCompleting}
+            className="flex-shrink-0 transition-colors opacity-0 group-hover/task:opacity-100 text-gray-500 hover:text-green-500"
+          >
+            {isCompleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Circle className="h-5 w-5" />}
+          </button>
+        )}
 
         {/* Info */}
         <button
@@ -396,6 +434,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                 dueAt: task.dueAt,
                 pointsPossible: task.canvasData.pointsPossible,
                 status: task.canvasData.status,
+                manuallyCompleted: task.canvasData.manuallyCompleted,
+                manuallyCompletedAt: task.canvasData.manuallyCompletedAt,
                 isUrgent: task.isUrgent,
                 courseName: task.canvasData.courseName,
               })
@@ -407,6 +447,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                 dueAt: task.dueAt,
                 pointsValue: task.customData.pointsValue,
                 status: task.customData.status,
+                completedAt: task.customData.completedAt,
                 isUrgent: task.isUrgent,
                 category: task.customData.category,
                 userNotes: task.customData.userNotes,
