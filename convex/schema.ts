@@ -32,6 +32,7 @@ export default defineSchema({
     streakShields: v.optional(v.float64()), // 0–3, protect streak for 1 missed day each
     xpMultiplierDay: v.optional(v.string()), // '0'=Sunday … '6'=Saturday; all points on this day are doubled
     dashboardSectionOrder: v.optional(v.array(v.string())), // e.g. ['course_123', 'my_tasks', 'course_456']
+    hasOptedInToGrades: v.optional(v.boolean()), // true = sync+show grades, false = opted out (no grades)
   })
     .index('by_clerk_id', ['clerkId'])
     .index('by_canvas_user_id', ['canvasUserId']),

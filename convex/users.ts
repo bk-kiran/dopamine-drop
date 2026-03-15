@@ -579,6 +579,25 @@ export const disconnectCanvas = mutation({
   },
 })
 
+// Update grades privacy preference
+export const updateGradesPreference = mutation({
+  args: {
+    clerkId: v.string(),
+    hasOptedInToGrades: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+
+    if (!user) throw new Error('User not found')
+
+    await ctx.db.patch(user._id, { hasOptedInToGrades: args.hasOptedInToGrades })
+    return { success: true }
+  },
+})
+
 // Called when a user is deleted in Clerk
 export const deleteFromClerk = mutation({
   args: { clerkId: v.string() },

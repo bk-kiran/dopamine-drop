@@ -16,9 +16,11 @@ import {
   RotateCcw,
   BookOpen,
   EyeOff,
+  Lock,
 } from 'lucide-react'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
 import { LockedPage } from '@/components/locked-page'
+import { GradesToggle } from '@/components/grades-toggle'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
 
@@ -508,6 +510,36 @@ export default function GradesPage() {
     )
   }
 
+  // Grades disabled — show opt-in prompt with toggle to re-enable
+  if (userData?.hasOptedInToGrades === false) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-black text-(--text-primary) flex items-center gap-2">
+              <GraduationCap className="w-6 h-6 text-purple-400" />
+              Grades
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <GradesToggle isEnabled={false} onToggle={() => {}} />
+            <DashboardNavbar />
+          </div>
+        </div>
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-12 text-center">
+          <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-5">
+            <Lock className="w-7 h-7 text-(--text-muted)" />
+          </div>
+          <h2 className="text-lg font-bold text-(--text-primary) mb-2">Grades are disabled</h2>
+          <p className="text-sm text-(--text-muted) mb-6 max-w-sm mx-auto">
+            Enable grade syncing to pull your current grades, assignment scores, and GPA from Canvas.
+          </p>
+          <GradesToggle isEnabled={false} onToggle={() => {}} />
+        </div>
+      </div>
+    )
+  }
+
   // Filter to visible courses only
   const hiddenCourseIds: string[] = userData?.hiddenCourses ?? []
   const visibleCourses = allCourses.filter(
@@ -566,17 +598,20 @@ export default function GradesPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black text-[var(--text-primary)] flex items-center gap-2">
+          <h1 className="text-2xl font-black text-(--text-primary) flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-purple-400" />
             Grades
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
+          <p className="text-sm text-(--text-muted) mt-1">
             {hasAnyGrades
               ? `Tracking ${gradedCourses.length} of ${visibleCourses.length} visible course${visibleCourses.length !== 1 ? 's' : ''}`
               : 'Sync Canvas to load your grades'}
           </p>
         </div>
-        <DashboardNavbar />
+        <div className="flex items-center gap-3">
+          <GradesToggle isEnabled={true} onToggle={() => {}} />
+          <DashboardNavbar />
+        </div>
       </div>
 
       {/* Hidden courses notice */}

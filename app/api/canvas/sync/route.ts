@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
 
     const hiddenCourses = userData.hiddenCourses || []
     const canvasUserId = parseInt(userData.canvasUserId || '0')
+    // Only sync grade data if user has opted in (undefined = not yet asked = allow, false = opted out)
+    const shouldSyncGrades = userData.hasOptedInToGrades !== false
     let totalSynced = 0
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -114,14 +116,14 @@ export async function POST(request: NextRequest) {
       const currentGrade = studentEnrollment?.computed_current_score ?? undefined
       const finalGrade = studentEnrollment?.computed_final_score ?? undefined
 
-      // Upsert course (create or update)
+      // Upsert course (create or update); only pass grade fields if user opted in
       const courseId = await convex.mutation(api.courses.upsertCourse, {
         userId: convexUserId,
         canvasCourseId: course.id.toString(),
         name: course.name,
         courseCode: course.course_code,
-        currentGrade,
-        finalGrade,
+        currentGrade: shouldSyncGrades ? currentGrade : undefined,
+        finalGrade: shouldSyncGrades ? finalGrade : undefined,
       })
 
       // Fetch and upsert assignments for this course
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
             const statusChanged = existingAssignment.status !== assignmentData.status
             const pointsChanged = existingAssignment.pointsPossible !== assignmentData.points_possible
             const descChanged = (existingAssignment.description || null) !== (assignmentData.description || null)
-            const gradeChanged = (existingAssignment.gradeReceived ?? null) !== (userSubmission?.score ?? null)
+            const gradeChanged = shouldSyncGrades && (existingAssignment.gradeReceived ?? null) !== (userSubmission?.score ?? null)
 
             needsUpdate = titleChanged || dueAtChanged || statusChanged || pointsChanged || descChanged || gradeChanged
 
@@ -195,8 +197,8 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Extract grade and group from assignment
-          const gradeReceived = userSubmission?.score ?? undefined
+          // Extract grade and group from assignment (only if user opted in to grades)
+          const gradeReceived = shouldSyncGrades ? (userSubmission?.score ?? undefined) : undefined
           const assignmentGroupName = assignment.assignment_group?.name ?? undefined
 
           // On initial sync: mark assignments overdue >7 days (and not submitted) as old-archived

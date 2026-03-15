@@ -5,6 +5,7 @@ import { X, Loader2, Check, AlertCircle, Link as LinkIcon, RefreshCw } from 'luc
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
 import { CourseSelectionModal, SyncedCourse } from './course-selection-modal'
+import { GradesOptInModal } from './grades-opt-in-modal'
 
 type SyncStep = 'connecting' | 'syncing' | 'complete'
 
@@ -21,6 +22,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
   const [syncSummary, setSyncSummary] = useState<string | null>(null)
   const [syncedCourses, setSyncedCourses] = useState<SyncedCourse[]>([])
   const [showCourseSelection, setShowCourseSelection] = useState(false)
+  const [showGradesOptIn, setShowGradesOptIn] = useState(false)
   const [syncError, setSyncError] = useState<{ message: string; code: string; retryable: boolean } | null>(null)
 
   const handleConnect = async () => {
@@ -83,6 +85,11 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
 
   const handleCourseSelectionComplete = () => {
     setShowCourseSelection(false)
+    setShowGradesOptIn(true)
+  }
+
+  const handleGradesOptInComplete = () => {
+    setShowGradesOptIn(false)
     handleClose()
     toast({ description: 'Canvas connected and synced!', duration: 3000 })
   }
@@ -95,6 +102,7 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
     setSyncSummary(null)
     setSyncedCourses([])
     setShowCourseSelection(false)
+    setShowGradesOptIn(false)
     setSyncError(null)
     onClose()
   }
@@ -268,6 +276,11 @@ export function ConnectCanvasModal({ isOpen, onClose }: Props) {
         isOpen={showCourseSelection}
         courses={syncedCourses}
         onComplete={handleCourseSelectionComplete}
+      />
+
+      <GradesOptInModal
+        isOpen={showGradesOptIn}
+        onComplete={handleGradesOptInComplete}
       />
     </>
   )
