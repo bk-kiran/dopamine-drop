@@ -121,9 +121,20 @@ export function AssignmentDetailsModal({
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const [isActioning, setIsActioning] = useState(false)
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
+  const fieldsTimeout = useRef<NodeJS.Timeout | null>(null)
+
+  // Editable fields state (custom tasks only)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDueAt, setEditDueAt] = useState('')
+  const [editCategory, setEditCategory] = useState<Category>('personal')
+  const [editDescription, setEditDescription] = useState('')
+  const [editPointsValue, setEditPointsValue] = useState<number>(0)
+  const [fieldsSaved, setFieldsSaved] = useState(false)
+  const [isSavingFields, setIsSavingFields] = useState(false)
 
   const updateAssignmentNotes = useMutation(api.assignments.updateAssignmentNotes)
   const updateCustomTaskNotes = useMutation(api.customTasks.updateCustomTaskNotes)
+  const updateCustomTask = useMutation(api.customTasks.updateCustomTask)
   const manuallyCompleteAssignment = useMutation(api.assignments.manuallyCompleteAssignment)
   const unCompleteAssignment = useMutation(api.assignments.unCompleteAssignment)
   const completeCustomTask = useMutation(api.customTasks.completeCustomTask)
@@ -131,18 +142,26 @@ export function AssignmentDetailsModal({
   const toggleUrgent = useMutation(api.assignments.toggleUrgent)
   const toggleUrgentCustomTask = useMutation(api.customTasks.toggleUrgentCustomTask)
 
-  // Sync notes when item changes
+  // Sync state when item changes
   useEffect(() => {
     if (item) {
       setNotes(item.userNotes || '')
       setNotesSaved(false)
+      if (item.type === 'customTask') {
+        setEditTitle(item.title)
+        setEditDueAt(item.dueAt ? item.dueAt.slice(0, 16) : '')
+        setEditCategory(item.category)
+        setEditDescription(item.description || '')
+        setEditPointsValue(item.pointsValue)
+      }
     }
   }, [item?.id])
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
+      if (fieldsTimeout.current) clearTimeout(fieldsTimeout.current)
     }
   }, [])
 
@@ -173,6 +192,43 @@ export function AssignmentDetailsModal({
   const handleNotesBlur = () => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     doSaveNotes(notes)
+  }
+
+  const doSaveFields = useCallback(async (
+    title: string, description: string, category: Category, dueAt: string, pointsValue: number
+  ) => {
+    if (!item || item.type !== 'customTask' || !title.trim()) return
+    setIsSavingFields(true)
+    setFieldsSaved(false)
+    try {
+      await updateCustomTask({
+        taskId: item.id as any,
+        clerkId: supabaseUserId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        category,
+        dueAt: dueAt ? dueAt + ':00' : undefined,
+        pointsValue: pointsValue > 0 ? pointsValue : undefined,
+      })
+      setFieldsSaved(true)
+    } catch (e) {
+      console.error('Failed to save task fields', e)
+    } finally {
+      setIsSavingFields(false)
+    }
+  }, [item, supabaseUserId, updateCustomTask])
+
+  const scheduleFieldsSave = (
+    title: string, description: string, category: Category, dueAt: string, pointsValue: number
+  ) => {
+    setFieldsSaved(false)
+    if (fieldsTimeout.current) clearTimeout(fieldsTimeout.current)
+    fieldsTimeout.current = setTimeout(() => doSaveFields(title, description, category, dueAt, pointsValue), 1200)
+  }
+
+  const flushFieldsSave = () => {
+    if (fieldsTimeout.current) clearTimeout(fieldsTimeout.current)
+    doSaveFields(editTitle, editDescription, editCategory, editDueAt, editPointsValue)
   }
 
   // ── Quick actions ──
@@ -293,17 +349,53 @@ export function AssignmentDetailsModal({
         <div className="px-6 pt-5 pb-6 space-y-5">
           {/* Header */}
           <DialogHeader className="space-y-1">
-            <DialogTitle className="text-xl font-black text-[var(--text-primary)] leading-tight pr-6">
-              {item.title}
+            <DialogTitle className={item.type === 'customTask' ? 'p-0' : 'text-xl font-black text-[var(--text-primary)] leading-tight pr-6'}>
+              {item.type === 'customTask' ? (
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => {
+                    setEditTitle(e.target.value)
+                    scheduleFieldsSave(e.target.value, editDescription, editCategory, editDueAt, editPointsValue)
+                  }}
+                  onBlur={flushFieldsSave}
+                  className="text-xl font-black text-[var(--text-primary)] leading-tight pr-6 bg-transparent border-0 border-b border-white/10 focus:border-purple-500/50 outline-none w-full pb-1 transition-colors"
+                  placeholder="Task title..."
+                />
+              ) : item.title}
             </DialogTitle>
+            {item.type === 'customTask' && (
+              <div className="h-3">
+                {isSavingFields && (
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />Saving…
+                  </span>
+                )}
+                {fieldsSaved && !isSavingFields && (
+                  <span className="flex items-center gap-1 text-[10px] text-green-400">
+                    <Check className="w-2.5 h-2.5" />Saved
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap">
               {item.type === 'assignment' ? (
                 <span className="text-xs text-[var(--text-muted)] font-medium">{item.courseName}</span>
               ) : (
-                <span className={`flex items-center gap-1 text-xs font-bold ${categoryColor}`}>
-                  {CategoryIcon && <CategoryIcon className="w-3 h-3" />}
-                  {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-                </span>
+                <select
+                  value={editCategory}
+                  onChange={(e) => {
+                    const val = e.target.value as Category
+                    setEditCategory(val)
+                    scheduleFieldsSave(editTitle, editDescription, val, editDueAt, editPointsValue)
+                  }}
+                  className={`flex items-center gap-1 text-xs font-bold bg-transparent border-0 outline-none cursor-pointer ${CATEGORY_COLOR[editCategory]}`}
+                >
+                  <option value="academic" className="bg-[#1a1625] text-white">Academic</option>
+                  <option value="club" className="bg-[#1a1625] text-white">Club</option>
+                  <option value="work" className="bg-[#1a1625] text-white">Work</option>
+                  <option value="personal" className="bg-[#1a1625] text-white">Personal</option>
+                </select>
               )}
             </div>
           </DialogHeader>
@@ -311,41 +403,87 @@ export function AssignmentDetailsModal({
           {/* Metadata row */}
           <div className="flex items-center gap-3 flex-wrap">
             {/* Due date */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-              <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <span className="text-xs text-[var(--text-muted)]">
-                {formatDueDate(item.type === 'assignment' ? item.dueAt : item.dueAt)}
-              </span>
-            </div>
+            {item.type === 'customTask' ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 focus-within:border-purple-500/50 transition-colors">
+                <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <input
+                  type="datetime-local"
+                  value={editDueAt}
+                  onChange={(e) => {
+                    setEditDueAt(e.target.value)
+                    scheduleFieldsSave(editTitle, editDescription, editCategory, e.target.value, editPointsValue)
+                  }}
+                  onBlur={flushFieldsSave}
+                  className="text-xs text-[var(--text-muted)] bg-transparent border-0 outline-none"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <span className="text-xs text-[var(--text-muted)]">
+                  {formatDueDate(item.dueAt)}
+                </span>
+              </div>
+            )}
 
             {/* Points */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-              <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/50" />
-              <span className="text-xs font-bold text-[var(--text-primary)]">
-                {item.type === 'assignment' ? item.pointsPossible : item.pointsValue} pts
-              </span>
-            </div>
+            {item.type === 'customTask' ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 focus-within:border-purple-500/50 transition-colors">
+                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/50 shrink-0" />
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={editPointsValue}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(1000, Number(e.target.value) || 1))
+                    setEditPointsValue(val)
+                    scheduleFieldsSave(editTitle, editDescription, editCategory, editDueAt, val)
+                  }}
+                  onBlur={flushFieldsSave}
+                  className="w-12 text-xs font-bold text-[var(--text-primary)] bg-transparent border-0 outline-none"
+                />
+                <span className="text-xs text-[var(--text-muted)]">pts</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500/50" />
+                <span className="text-xs font-bold text-[var(--text-primary)]">{item.pointsPossible} pts</span>
+              </div>
+            )}
 
             {/* Status badge */}
             <StatusBadge item={item} />
           </div>
 
           {/* Description */}
-          {item.description ? (
+          {item.type === 'assignment' && item.description ? (
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
-                {item.type === 'assignment' ? 'Assignment Description' : 'Task Details'}
+                Assignment Description
               </p>
-              {item.type === 'assignment' ? (
-                <div
-                  className="text-sm text-[var(--text-muted)] leading-relaxed prose prose-sm prose-invert max-w-none [&_a]:text-purple-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 max-h-36 overflow-y-auto pr-1"
-                  dangerouslySetInnerHTML={{
-                    __html: item.description.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''),
-                  }}
-                />
-              ) : (
-                <p className="text-sm text-[var(--text-muted)] leading-relaxed">{item.description}</p>
-              )}
+              <div
+                className="text-sm text-[var(--text-muted)] leading-relaxed prose prose-sm prose-invert max-w-none [&_a]:text-purple-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 max-h-36 overflow-y-auto pr-1"
+                dangerouslySetInnerHTML={{
+                  __html: item.description.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''),
+                }}
+              />
+            </div>
+          ) : item.type === 'customTask' ? (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+                Description
+              </p>
+              <Textarea
+                value={editDescription}
+                onChange={(e) => {
+                  setEditDescription(e.target.value)
+                  scheduleFieldsSave(editTitle, e.target.value, editCategory, editDueAt, editPointsValue)
+                }}
+                onBlur={flushFieldsSave}
+                placeholder="Add a description…"
+                className="min-h-[60px] text-sm bg-white/5 border-white/10 focus:border-purple-500/50 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none"
+              />
             </div>
           ) : null}
 

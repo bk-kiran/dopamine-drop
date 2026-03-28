@@ -14,7 +14,7 @@ import { DailyChallenges } from '@/components/daily-challenges'
 import { ConnectCanvasModal } from '@/components/connect-canvas-modal'
 import {
   Flame, Zap, Plus, BookOpen, Users, Briefcase, Heart,
-  Circle, CheckCircle2, Loader2, Trash2, Pencil, Check,
+  Circle, CheckCircle2, Loader2, Trash2, Check,
   Settings, ChevronDown, ChevronRight, Calendar,
   AlertTriangle, CalendarClock, CalendarRange, Trophy, ClipboardList,
   Link as LinkIcon,
@@ -503,15 +503,6 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </button>
         )}
 
-        {/* Edit (custom only) */}
-        {task.type === 'custom' && !task.isCompleted && (
-          <button
-            onClick={() => { setEditTask(task.customData); setIsAddTaskOpen(true) }}
-            className="p-1 rounded text-[var(--text-muted)] hover:text-purple-400 opacity-0 group-hover/task:opacity-100 transition-all"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-        )}
 
         {/* Delete (custom only) */}
         {task.type === 'custom' && (
