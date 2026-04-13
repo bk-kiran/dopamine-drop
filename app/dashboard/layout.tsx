@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from "react";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
+import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
   BookOpen,
@@ -9,7 +9,8 @@ import {
   GraduationCap,
   Trophy,
   User,
-  LogOut
+  LogOut,
+  BarChart2,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -21,6 +22,46 @@ import { Toaster } from "@/components/ui/toaster"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 import { ConvexClientProvider } from "@/providers/convex-client-provider"
 import { AchievementToast } from "@/components/achievement-toast"
+
+// Custom sidebar link that supports an unreviewed count badge
+function InsightsSidebarLink({ unreviewedCount }: { unreviewedCount: number }) {
+  const { open, animate } = useSidebar()
+  const pathname = usePathname()
+  const isActive = pathname === '/dashboard/insights'
+  return (
+    <Link
+      href="/dashboard/insights"
+      className={[
+        'relative flex items-center gap-3 py-3 px-2 rounded-lg transition-all duration-200',
+        open ? 'justify-start' : 'justify-center',
+        'hover:bg-purple-50 dark:hover:bg-purple-500/10',
+      ].join(' ')}
+    >
+      <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+        <BarChart2 className={`w-5 h-5 ${isActive ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-neutral-200'}`} />
+        {unreviewedCount > 0 && !open && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-500 text-[8px] font-black text-white flex items-center justify-center leading-none">
+            {unreviewedCount > 9 ? '9+' : unreviewedCount}
+          </span>
+        )}
+      </div>
+      <motion.span
+        animate={{
+          display: animate ? (open ? 'inline-flex' : 'none') : 'inline-flex',
+          opacity: animate ? (open ? 1 : 0) : 1,
+        }}
+        className="text-sm font-medium whitespace-nowrap text-gray-700 dark:text-neutral-200 items-center gap-2 p-0! m-0!"
+      >
+        Insights
+        {unreviewedCount > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-black leading-none">
+            {unreviewedCount}
+          </span>
+        )}
+      </motion.span>
+    </Link>
+  )
+}
 
 export default function DashboardLayout({
   children,
@@ -61,6 +102,11 @@ export default function DashboardLayout({
   const activeIconClass = (href: string) =>
     `w-5 h-5 ${pathname === href ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-neutral-200'}`
 
+  const unreviewedCount = useQuery(
+    api.customTasks.getUnreviewedInsightsCount,
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
+  ) ?? 0
+
   const links = [
     { label: "Dashboard",   href: "/dashboard",            icon: <LayoutDashboard className={activeIconClass('/dashboard')} /> },
     { label: "Courses",     href: "/dashboard/courses",    icon: <BookOpen className={activeIconClass('/dashboard/courses')} /> },
@@ -91,8 +137,12 @@ export default function DashboardLayout({
                   {open ? <Logo /> : <LogoIcon />}
                 </div>
                 <div className="flex flex-col gap-1">
-                  {links.map((link, idx) => (
+                  {links.slice(0, 5).map((link, idx) => (
                     <SidebarLink key={idx} link={link} />
+                  ))}
+                  <InsightsSidebarLink unreviewedCount={unreviewedCount} />
+                  {links.slice(5).map((link, idx) => (
+                    <SidebarLink key={idx + 5} link={link} />
                   ))}
                 </div>
               </div>

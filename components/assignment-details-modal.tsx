@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { type InsightsViewData } from '@/lib/calculateInsightsGrade'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import {
@@ -11,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Star, Flame, CheckCircle2, Circle, Check, Loader2, BookOpen, Users, Briefcase, Heart } from 'lucide-react'
+import { Calendar, Star, Flame, CheckCircle2, Circle, Check, Loader2, BookOpen, Users, Briefcase, Heart, BarChart2 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getUntickStatus, getUntickTooltip } from '@/lib/taskUtils'
@@ -47,6 +49,13 @@ export interface ModalCustomTask {
   isUrgent?: boolean
   category: Category
   userNotes?: string
+  // Submission Insights fields
+  submittedAt?: number
+  originalDueDate?: number
+  dueDateHistory?: Array<{ date: number; changedAt: number }>
+  maxPossiblePoints?: number
+  selfFeedbackRating?: number
+  insightsGrade?: string
 }
 
 export type ModalItem = ModalAssignment | ModalCustomTask
@@ -104,6 +113,8 @@ interface AssignmentDetailsModalProps {
   item: ModalItem | null
   supabaseUserId: string
   onActionComplete?: () => void
+  onViewInsights?: (item: ModalCustomTask) => void
+  onCompleteWithInsights?: (data: InsightsViewData) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -114,6 +125,8 @@ export function AssignmentDetailsModal({
   item,
   supabaseUserId,
   onActionComplete,
+  onViewInsights,
+  onCompleteWithInsights,
 }: AssignmentDetailsModalProps) {
   const { toast } = useToast()
   const [notes, setNotes] = useState('')
@@ -236,6 +249,7 @@ export function AssignmentDetailsModal({
   const handleMarkComplete = async () => {
     if (!item) return
     setIsActioning(true)
+    const submittedAtMs = Date.now()
     try {
       if (item.type === 'assignment') {
         const result = await manuallyCompleteAssignment({
@@ -250,7 +264,19 @@ export function AssignmentDetailsModal({
             : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
           duration: 4000,
         })
+        onCompleteWithInsights?.({
+          taskId: item.id as any,
+          taskTitle: item.title,
+          isCanvas: true,
+          pointsEarned: item.pointsPossible ?? 0,
+          submittedAt: submittedAtMs,
+          originalDueDate: item.dueAt ? new Date(item.dueAt).getTime() : undefined,
+          dueDateHistory: [],
+          maxPossiblePoints: item.pointsPossible,
+          canvasSubmittedAt: submittedAtMs,
+        })
       } else {
+        const customItem = item as ModalCustomTask
         const result = await completeCustomTask({
           taskId: item.id as any,
           clerkId: supabaseUserId,
@@ -262,6 +288,17 @@ export function AssignmentDetailsModal({
             ? 'bg-purple-50 border-purple-200 text-purple-900 dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-100'
             : 'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/30 dark:border-green-800 dark:text-green-100',
           duration: 4000,
+        })
+        onCompleteWithInsights?.({
+          taskId: item.id as any,
+          taskTitle: item.title,
+          isCanvas: false,
+          pointsEarned: result.pointsAwarded,
+          submittedAt: submittedAtMs,
+          originalDueDate: customItem.originalDueDate
+            ?? (customItem.dueAt ? new Date(customItem.dueAt).getTime() : undefined),
+          dueDateHistory: customItem.dueDateHistory ?? [],
+          maxPossiblePoints: result.pointsAwarded,
         })
       }
       onActionComplete?.()
@@ -404,18 +441,33 @@ export function AssignmentDetailsModal({
           <div className="flex items-center gap-3 flex-wrap">
             {/* Due date */}
             {item.type === 'customTask' ? (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 focus-within:border-purple-500/50 transition-colors">
-                <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                <input
-                  type="datetime-local"
-                  value={editDueAt}
-                  onChange={(e) => {
-                    setEditDueAt(e.target.value)
-                    scheduleFieldsSave(editTitle, editDescription, editCategory, e.target.value, editPointsValue)
-                  }}
-                  onBlur={flushFieldsSave}
-                  className="text-xs text-[var(--text-muted)] bg-transparent border-0 outline-none"
-                />
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 focus-within:border-purple-500/50 transition-colors">
+                  <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  <input
+                    type="datetime-local"
+                    value={editDueAt}
+                    onChange={(e) => {
+                      setEditDueAt(e.target.value)
+                      scheduleFieldsSave(editTitle, editDescription, editCategory, e.target.value, editPointsValue)
+                    }}
+                    onBlur={flushFieldsSave}
+                    className="text-xs text-[var(--text-muted)] bg-transparent border-0 outline-none"
+                  />
+                </div>
+                <AnimatePresence>
+                  {item.dueAt && editDueAt && (editDueAt + ':00') > item.dueAt && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-xs text-amber-500 pl-1"
+                    >
+                      Extending your due date will reduce your max possible points
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
@@ -514,7 +566,8 @@ export function AssignmentDetailsModal({
           </div>
 
           {/* Quick actions footer */}
-          {(isPending || isCompleted || isCanvasSubmitted || item.isUrgent) && (
+          {(isPending || isCompleted || isCanvasSubmitted || item.isUrgent ||
+            (item.type === 'customTask' && item.status === 'completed' && item.submittedAt)) && (
             <div className="flex items-center gap-2 pt-1 border-t border-white/10 flex-wrap">
               {/* Mark Complete */}
               {isPending && !isCanvasSubmitted && (
@@ -577,6 +630,17 @@ export function AssignmentDetailsModal({
                   </button>
                 )
               })()}
+
+              {/* View Insights */}
+              {item.type === 'customTask' && item.status === 'completed' && item.submittedAt && onViewInsights && (
+                <button
+                  onClick={() => { onViewInsights(item); onClose() }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-semibold hover:bg-purple-500/20 transition-all"
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  View Insights
+                </button>
+              )}
 
               {/* Remove from Urgent */}
               {item.isUrgent && isPending && (

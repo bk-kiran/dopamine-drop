@@ -6,7 +6,9 @@ import { api } from '@/convex/_generated/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { AutoSync } from './auto-sync'
 import { AddTaskModal } from '@/components/add-task-modal'
-import { AssignmentDetailsModal, type ModalItem } from '@/components/assignment-details-modal'
+import { AssignmentDetailsModal, type ModalItem, type ModalCustomTask } from '@/components/assignment-details-modal'
+import { SubmissionInsightsModal } from '@/components/insights/SubmissionInsightsModal'
+import { type InsightsViewData } from '@/lib/calculateInsightsGrade'
 import { StreakShieldIndicator } from '@/components/streak-shield-indicator'
 import { DashboardNavbar } from '@/components/dashboard-navbar'
 import { DashboardSettingsModal, useDashboardSettings } from '@/components/dashboard-settings-modal'
@@ -17,7 +19,7 @@ import {
   Circle, CheckCircle2, Loader2, Trash2, Check,
   Settings, ChevronDown, ChevronRight, Calendar,
   AlertTriangle, CalendarClock, CalendarRange, Trophy, ClipboardList,
-  Link as LinkIcon,
+  Link as LinkIcon, BarChart2,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/components/ui/use-toast'
@@ -128,6 +130,7 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const [taskToUntick, setTaskToUntick] = useState<{ id: string; title: string; type: 'canvas' | 'custom' } | null>(null)
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
   const [taskModalItem, setTaskModalItem] = useState<ModalItem | null>(null)
+  const [insightsData, setInsightsData] = useState<InsightsViewData | null>(null)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
   // Each bucket manages its own collapsed state independently
   const [collapsedBuckets, setCollapsedBuckets] = useState<Set<string>>(
@@ -246,8 +249,9 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleCompleteCustomTask = async (taskId: string, taskTitle: string) => {
+  const handleCompleteCustomTask = async (taskId: string, taskTitle: string, customData?: any) => {
     setCompletingTaskId(taskId)
+    const submittedAtMs = Date.now()
     try {
       const result = await completeCustomTask({ taskId: taskId as any, clerkId: supabaseUserId })
       toast({
@@ -260,13 +264,26 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       })
       updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
       checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
+      // Open insights modal — use data captured before the mutation for immediate display
+      setInsightsData({
+        taskId: taskId as any,
+        taskTitle,
+        isCanvas: false,
+        pointsEarned: result.pointsAwarded,
+        submittedAt: submittedAtMs,
+        originalDueDate: customData?.originalDueDate
+          ?? (customData?.dueAt ? new Date(customData.dueAt).getTime() : undefined),
+        dueDateHistory: customData?.dueDateHistory ?? [],
+        maxPossiblePoints: result.pointsAwarded,
+      })
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally { setCompletingTaskId(null) }
   }
 
-  const handleCompleteCanvasTask = async (assignmentId: string, title: string) => {
+  const handleCompleteCanvasTask = async (assignmentId: string, title: string, canvasData?: Assignment) => {
     setCompletingTaskId(assignmentId)
+    const submittedAtMs = Date.now()
     try {
       await manuallyCompleteAssignment({ assignmentId: assignmentId as any, clerkId: supabaseUserId })
       toast({
@@ -276,6 +293,17 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
       })
       updateChallengeProgress({ clerkId: supabaseUserId }).catch(console.error)
       checkAndAwardAchievements({ clerkId: supabaseUserId }).catch(console.error)
+      setInsightsData({
+        taskId: assignmentId as any,
+        taskTitle: title,
+        isCanvas: true,
+        pointsEarned: canvasData?.pointsPossible ?? 0,
+        submittedAt: submittedAtMs,
+        originalDueDate: canvasData?.dueAt ? new Date(canvasData.dueAt).getTime() : undefined,
+        dueDateHistory: [],
+        maxPossiblePoints: canvasData?.pointsPossible,
+        canvasSubmittedAt: submittedAtMs,
+      })
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     } finally { setCompletingTaskId(null) }
@@ -331,6 +359,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive', duration: 3000 })
     }
+  }
+
+  const handleViewInsights = (modalTask: ModalCustomTask) => {
+    setInsightsData({
+      taskId: modalTask.id as any,
+      taskTitle: modalTask.title,
+      isCanvas: false,
+      pointsEarned: modalTask.maxPossiblePoints ?? modalTask.pointsValue,
+      submittedAt: modalTask.submittedAt,
+      originalDueDate: modalTask.originalDueDate,
+      dueDateHistory: modalTask.dueDateHistory ?? [],
+      maxPossiblePoints: modalTask.maxPossiblePoints,
+      existingRating: modalTask.selfFeedbackRating,
+      existingGrade: modalTask.insightsGrade,
+    })
   }
 
   const handleToggleUrgentCanvas = async (assignmentId: string) => {
@@ -413,8 +456,8 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         })() : (
           <button
             onClick={() => {
-              if (task.type === 'custom') handleCompleteCustomTask(task.id, task.title)
-              else handleCompleteCanvasTask(task.id, task.title)
+              if (task.type === 'custom') handleCompleteCustomTask(task.id, task.title, task.customData)
+              else handleCompleteCanvasTask(task.id, task.title, task.canvasData)
             }}
             disabled={isCompleting}
             className="flex-shrink-0 transition-colors opacity-0 group-hover/task:opacity-100 text-gray-500 hover:text-green-500"
@@ -451,6 +494,12 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
                 isUrgent: task.isUrgent,
                 category: task.customData.category,
                 userNotes: task.customData.userNotes,
+                submittedAt: task.customData.submittedAt,
+                originalDueDate: task.customData.originalDueDate,
+                dueDateHistory: task.customData.dueDateHistory,
+                maxPossiblePoints: task.customData.maxPossiblePoints,
+                selfFeedbackRating: task.customData.selfFeedbackRating,
+                insightsGrade: task.customData.insightsGrade,
               })
             }
           }}
@@ -484,6 +533,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
             {task.type === 'custom' && task.customData?.pointsValue && (
               <span className="text-[10px] text-purple-400 font-semibold">{task.customData.pointsValue} pts</span>
             )}
+            {task.type === 'custom' && task.customData?.insightsGrade && (() => {
+              const g = task.customData.insightsGrade as string
+              const badgeColors: Record<string, string> = {
+                A: 'bg-emerald-500/15 text-emerald-400',
+                B: 'bg-blue-500/15 text-blue-400',
+                C: 'bg-amber-500/15 text-amber-400',
+                D: 'bg-orange-500/15 text-orange-400',
+                F: 'bg-red-500/15 text-red-400',
+              }
+              return (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black leading-none ${badgeColors[g] ?? 'bg-white/10 text-white/50'}`}>
+                  {g}
+                </span>
+              )
+            })()}
             {task.type === 'canvas' && (task.canvasData?.pointsPossible ?? 0) > 0 && (
               <span className="text-[10px] text-purple-400 font-semibold">{task.canvasData!.pointsPossible} pts</span>
             )}
@@ -503,6 +567,32 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
           </button>
         )}
 
+
+        {/* View Insights (completed custom tasks with submittedAt) */}
+        {task.type === 'custom' && task.isCompleted && task.customData?.submittedAt && (
+          <button
+            onClick={() => handleViewInsights({
+              type: 'customTask',
+              id: task.id,
+              title: task.title,
+              dueAt: task.dueAt,
+              pointsValue: task.customData.pointsValue,
+              status: 'completed',
+              completedAt: task.customData.completedAt,
+              category: task.customData.category,
+              submittedAt: task.customData.submittedAt,
+              originalDueDate: task.customData.originalDueDate,
+              dueDateHistory: task.customData.dueDateHistory,
+              maxPossiblePoints: task.customData.maxPossiblePoints,
+              selfFeedbackRating: task.customData.selfFeedbackRating,
+              insightsGrade: task.customData.insightsGrade,
+            })}
+            className="p-1 rounded text-[var(--text-muted)] hover:text-purple-400 opacity-0 group-hover/task:opacity-100 transition-all"
+            title="View Insights"
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+          </button>
+        )}
 
         {/* Delete (custom only) */}
         {task.type === 'custom' && (
@@ -859,7 +949,21 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
         onClose={() => setTaskModalItem(null)}
         item={taskModalItem}
         supabaseUserId={supabaseUserId}
+        onViewInsights={handleViewInsights}
+        onCompleteWithInsights={(data) => {
+          setTaskModalItem(null)
+          setInsightsData(data)
+        }}
       />
+
+      {insightsData && (
+        <SubmissionInsightsModal
+          open={!!insightsData}
+          onClose={() => setInsightsData(null)}
+          supabaseUserId={supabaseUserId}
+          {...insightsData}
+        />
+      )}
 
       <AlertDialog open={taskToUntick !== null} onOpenChange={(open) => !open && setTaskToUntick(null)}>
         <AlertDialogContent>

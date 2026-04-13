@@ -431,6 +431,7 @@ export const manuallyCompleteAssignment = mutation({
       manuallyCompleted: true,
       manuallyCompletedAt: submittedAt,
       isUrgent: false, // Clear urgent flag when completed
+      insightsSubmittedAt: now.getTime(), // Unix ms for Submission Insights grade calculation
     })
 
     // Add base points to ledger
@@ -703,5 +704,34 @@ export const getAssignmentsByCourse = query({
         if (!b.dueAt) return -1
         return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
       })
+  },
+})
+
+// Save insights feedback for a manually-completed Canvas assignment
+export const saveAssignmentInsightsFeedback = mutation({
+  args: {
+    assignmentId: v.id('assignments'),
+    clerkId: v.string(),
+    selfFeedbackRating: v.number(),
+    insightsGrade: v.string(),
+    insightsSubmittedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', args.clerkId))
+      .first()
+    if (!user) throw new Error('User not found')
+
+    const assignment = await ctx.db.get(args.assignmentId)
+    if (!assignment || assignment.userId !== user._id) throw new Error('Assignment not found')
+
+    await ctx.db.patch(args.assignmentId, {
+      selfFeedbackRating: args.selfFeedbackRating,
+      insightsGrade: args.insightsGrade,
+      insightsSubmittedAt: args.insightsSubmittedAt,
+    })
+
+    return { success: true }
   },
 })

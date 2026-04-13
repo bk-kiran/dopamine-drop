@@ -75,6 +75,14 @@ export default defineSchema({
     assignmentGroupName: v.optional(v.string()), // e.g. 'Homework', 'Exams'
     archived: v.optional(v.boolean()),           // Soft-deleted when Canvas is disconnected
     isArchivedOld: v.optional(v.boolean()),      // Overdue >7 days at initial sync — hidden from dashboard
+
+    // Submission Insights fields
+    // Note: existing submittedAt (string) is kept for Canvas sync compat; canvasSubmittedAt is the numeric version
+    canvasSubmittedAt: v.optional(v.number()),   // Unix ms from Canvas API submission time
+    // submittedAt (string) already exists above as fallback when Canvas time is unavailable
+    insightsSubmittedAt: v.optional(v.number()), // Unix ms when user manually completed (used as insights submission time)
+    selfFeedbackRating: v.optional(v.number()),  // 1–5, set by user in insights modal
+    insightsGrade: v.optional(v.string()),        // "A"|"B"|"C"|"D"|"F", computed after reveal
   })
     .index('by_user', ['userId'])
     .index('by_user_and_canvas_id', ['userId', 'canvasAssignmentId'])
@@ -111,6 +119,14 @@ export default defineSchema({
     isUrgent: v.optional(v.boolean()),
     urgentOrder: v.optional(v.float64()),
     userNotes: v.optional(v.string()), // Personal notes on the task
+
+    // Submission Insights fields
+    dueDateHistory: v.optional(v.array(v.object({ date: v.number(), changedAt: v.number() }))), // Appended each time due date is changed
+    submittedAt: v.optional(v.number()), // Unix ms timestamp recorded at completion
+    selfFeedbackRating: v.optional(v.number()), // 1–5, set by user in insights modal
+    insightsGrade: v.optional(v.string()), // "A"|"B"|"C"|"D"|"F", computed and stored after reveal
+    maxPossiblePoints: v.optional(v.number()), // XP that would have been earned if submitted on originalDueDate
+    originalDueDate: v.optional(v.number()), // Unix ms snapshot of first due date; never overwritten
   }).index('by_user_id', ['userId']),
 
   // Rewards table
