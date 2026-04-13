@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -264,6 +265,19 @@ export function AddTaskModal({ open, onClose, supabaseUserId, editTask }: AddTas
                 className="bg-white/5 border-white/10 pl-9"
               />
             </div>
+            <AnimatePresence>
+              {isEditing && editTask?.dueAt && dueAt && (dueAt + ':00') > editTask.dueAt && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-xs text-amber-500 mt-1"
+                >
+                  Extending your due date will reduce your max possible points
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Submit */}

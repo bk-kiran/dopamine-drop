@@ -218,7 +218,24 @@ export const updateCustomTask = mutation({
     if (args.description !== undefined) updates.description = args.description
     if (args.category !== undefined) updates.category = args.category
     if (args.pointsValue !== undefined) updates.pointsValue = args.pointsValue
-    if (args.dueAt !== undefined) updates.dueAt = args.dueAt
+
+    if (args.dueAt !== undefined && task.dueAt !== undefined) {
+      const now = Date.now()
+      const currentDueDateMs = new Date(task.dueAt).getTime()
+
+      // Snapshot originalDueDate once — never overwrite after first set
+      if (task.originalDueDate === undefined) {
+        updates.originalDueDate = currentDueDateMs
+      }
+
+      // Append the current dueAt to history before overwriting
+      const existing = task.dueDateHistory ?? []
+      updates.dueDateHistory = [...existing, { date: currentDueDateMs, changedAt: now }]
+      updates.dueAt = args.dueAt
+    } else if (args.dueAt !== undefined) {
+      // Setting dueAt for the first time (was previously unset) — no history to record
+      updates.dueAt = args.dueAt
+    }
 
     await ctx.db.patch(args.taskId, updates)
     return args.taskId
@@ -239,14 +256,8 @@ export const completeCustomTask = mutation({
     if (!task || task.userId !== user._id) throw new Error('Task not found')
     if (task.status === 'completed') throw new Error('Task already completed')
 
-    const now = new Date().toISOString()
-
-    // Mark task as completed
-    await ctx.db.patch(args.taskId, {
-      status: 'completed',
-      completedAt: now,
-      isUrgent: false,
-    })
+    const nowMs = Date.now()
+    const now = new Date(nowMs).toISOString()
 
     // Check 2x XP multiplier day
     const todayDayStr = String(new Date().getDay()) // '0'=Sun … '6'=Sat
@@ -256,6 +267,19 @@ export const completeCustomTask = mutation({
     const basePoints = task.pointsValue
     const pointsToAward = multiplierActive ? basePoints * 2 : basePoints
     const reasonStr = multiplierActive ? 'custom_task (2x Multiplier!)' : 'custom_task'
+
+    // maxPossiblePoints: custom tasks have no timeliness modifier so this equals pointsToAward.
+    // Stored as the XP benchmark for insights efficiency scoring.
+    const maxPossiblePoints = pointsToAward
+
+    // Mark task as completed
+    await ctx.db.patch(args.taskId, {
+      status: 'completed',
+      completedAt: now,
+      isUrgent: false,
+      submittedAt: nowMs,
+      maxPossiblePoints,
+    })
 
     await ctx.db.insert('pointsLedger', {
       userId: user._id,
@@ -403,6 +427,86 @@ export const toggleUrgentCustomTask = mutation({
     })
 
     return { isUrgent: newUrgent }
+  },
+})
+
+// Save insights feedback after user rates themselves in the modal
+export const saveInsightsFeedback = mutation({
+  args: {
+    taskId: v.id('customTasks'),
+    clerkId: v.string(),
+    selfFeedbackRating: v.number(), // 1–5
+    insightsGrade: v.string(),      // "A"|"B"|"C"|"D"|"F"
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserByClerkId(ctx, args.clerkId)
+    if (!user) throw new Error('User not found')
+
+    const task = await ctx.db.get(args.taskId)
+    if (!task || task.userId !== user._id) throw new Error('Task not found')
+
+    await ctx.db.patch(args.taskId, {
+      selfFeedbackRating: args.selfFeedbackRating,
+      insightsGrade: args.insightsGrade,
+    })
+
+    return { success: true }
+  },
+})
+
+// All tasks graded via Submission Insights (custom + Canvas), ordered by submittedAt desc
+export const getCompletedInsightTasks = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getUserByClerkId(ctx, args.clerkId)
+    if (!user) return []
+
+    const [customTasks, assignments] = await Promise.all([
+      ctx.db.query('customTasks').withIndex('by_user_id', (q: any) => q.eq('userId', user._id)).collect(),
+      ctx.db.query('assignments').withIndex('by_user', (q: any) => q.eq('userId', user._id)).collect(),
+    ])
+
+    const ratedCustom = customTasks
+      .filter((t: any) => t.insightsGrade !== undefined)
+      .map((t: any) => ({ ...t, isCanvas: false }))
+
+    const ratedCanvas = assignments
+      .filter((a: any) => a.insightsGrade !== undefined)
+      .map((a: any) => ({
+        ...a,
+        isCanvas: true,
+        submittedAt: a.insightsSubmittedAt,
+        originalDueDate: a.dueAt ? new Date(a.dueAt).getTime() : undefined,
+        maxPossiblePoints: a.pointsPossible,
+        dueDateHistory: [],
+      }))
+
+    return [...ratedCustom, ...ratedCanvas]
+      .sort((a: any, b: any) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0))
+  },
+})
+
+// Count of completed tasks not yet rated (custom + Canvas)
+export const getUnreviewedInsightsCount = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getUserByClerkId(ctx, args.clerkId)
+    if (!user) return 0
+
+    const [customTasks, assignments] = await Promise.all([
+      ctx.db.query('customTasks').withIndex('by_user_id', (q: any) => q.eq('userId', user._id)).collect(),
+      ctx.db.query('assignments').withIndex('by_user', (q: any) => q.eq('userId', user._id)).collect(),
+    ])
+
+    const unreviewedCustom = customTasks.filter(
+      (t: any) => t.submittedAt !== undefined && t.insightsGrade === undefined
+    ).length
+
+    const unreviewedCanvas = assignments.filter(
+      (a: any) => a.manuallyCompleted === true && a.insightsGrade === undefined
+    ).length
+
+    return unreviewedCustom + unreviewedCanvas
   },
 })
 
