@@ -1,6 +1,11 @@
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
+// Tasks completed before this date pre-date the Submission Insights feature and
+// will never have insight data — exclude them from all insights queries.
+// 2026-04-13T00:00:00.000Z
+const INSIGHTS_FEATURE_LAUNCH_TS = 1776038400000
+
 // Helper: get user by Clerk ID
 async function getUserByClerkId(ctx: any, clerkId: string) {
   return await ctx.db
@@ -467,11 +472,11 @@ export const getCompletedInsightTasks = query({
     ])
 
     const ratedCustom = customTasks
-      .filter((t: any) => t.insightsGrade !== undefined)
+      .filter((t: any) => t.insightsGrade !== undefined && (t.submittedAt ?? 0) >= INSIGHTS_FEATURE_LAUNCH_TS)
       .map((t: any) => ({ ...t, isCanvas: false }))
 
     const ratedCanvas = assignments
-      .filter((a: any) => a.insightsGrade !== undefined)
+      .filter((a: any) => a.insightsGrade !== undefined && (a.insightsSubmittedAt ?? 0) >= INSIGHTS_FEATURE_LAUNCH_TS)
       .map((a: any) => ({
         ...a,
         isCanvas: true,
@@ -499,11 +504,11 @@ export const getUnreviewedInsightsCount = query({
     ])
 
     const unreviewedCustom = customTasks.filter(
-      (t: any) => t.submittedAt !== undefined && t.insightsGrade === undefined
+      (t: any) => t.submittedAt !== undefined && t.insightsGrade === undefined && t.submittedAt >= INSIGHTS_FEATURE_LAUNCH_TS
     ).length
 
     const unreviewedCanvas = assignments.filter(
-      (a: any) => a.manuallyCompleted === true && a.insightsGrade === undefined
+      (a: any) => a.manuallyCompleted === true && a.insightsGrade === undefined && (a.insightsSubmittedAt ?? 0) >= INSIGHTS_FEATURE_LAUNCH_TS
     ).length
 
     return unreviewedCustom + unreviewedCanvas
