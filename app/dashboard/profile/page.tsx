@@ -4,15 +4,17 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw, Gift, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { Zap, Flame, Trophy, CheckCircle2, Upload, Edit2, X, Check, Lock, Star, Moon, Shield, Crown, Sun, Dumbbell, Target, LogOut, Unlink, AlertTriangle, RefreshCw, Gift, Sparkles, ChevronDown, ChevronUp, Bell } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { redirect } from 'next/navigation'
 import { LevelCard } from '@/components/level-card'
 import { ConnectCanvasModal } from '@/components/connect-canvas-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { CropAvatarModal } from '@/components/crop-avatar-modal'
 import { useToast } from '@/components/ui/use-toast'
+import { urlBase64ToUint8Array } from '@/app/components/ServiceWorkerRegistration'
 
 const ACHIEVEMENT_ICON_MAP: Record<string, React.ElementType> = {
   Star, Moon, Zap, Shield, Flame, Trophy, Crown, Sun, Dumbbell, Target,
@@ -109,6 +111,56 @@ export default function ProfilePage() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl)
   const setXpMultiplierDay = useMutation(api.users.setXpMultiplierDay)
   const seedAchievements = useMutation(api.achievements.seedAchievements)
+  const updateNotificationPreferences = useMutation(api.notifications.updateNotificationPreferences)
+  const savePushSubscription = useMutation(api.notifications.savePushSubscription)
+
+  // Notification preferences
+  const notifPrefs = useQuery(
+    api.notifications.getNotificationPreferences,
+    supabaseUserId ? { clerkId: supabaseUserId } : 'skip'
+  )
+
+  // Browser notification permission state
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default')
+  const [isSubscribing, setIsSubscribing] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setPushPermission('unsupported')
+    } else {
+      setPushPermission(Notification.permission)
+    }
+  }, [])
+
+  async function handleEnablePush() {
+    if (!supabaseUserId || !('serviceWorker' in navigator) || !('PushManager' in window)) return
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidKey) return
+
+    setIsSubscribing(true)
+    try {
+      const permission = await Notification.requestPermission()
+      setPushPermission(permission)
+      if (permission !== 'granted') return
+
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+
+      const json = subscription.toJSON()
+      const p256dh = json.keys?.p256dh
+      const auth = json.keys?.auth
+      if (!p256dh || !auth) return
+
+      await savePushSubscription({ clerkId: supabaseUserId, endpoint: subscription.endpoint, p256dh, auth })
+    } catch (e) {
+      console.error('[push] Subscribe failed:', e)
+    } finally {
+      setIsSubscribing(false)
+    }
+  }
 
   // Auto-seed achievements pool if it came back empty
   useEffect(() => {
@@ -882,6 +934,86 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Notifications</h2>
+        <div className="px-6 py-5 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] space-y-5">
+
+          {/* Push Notifications */}
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+              <Bell className="w-5 h-5 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Push Notifications</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    Browser alerts for due dates and streak reminders
+                  </p>
+                  {pushPermission === 'denied' && (
+                    <p className="text-xs text-red-400 mt-1">
+                      Blocked in browser — click the lock icon in your address bar to reset.
+                    </p>
+                  )}
+                  {pushPermission === 'unsupported' && (
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                      Not supported in this browser.
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {pushPermission === 'granted' ? (
+                    <Switch
+                      checked={notifPrefs?.pushEnabled ?? true}
+                      disabled={!supabaseUserId}
+                      onCheckedChange={(value) =>
+                        updateNotificationPreferences({ clerkId: supabaseUserId!, pushEnabled: value }).catch(console.error)
+                      }
+                    />
+                  ) : pushPermission === 'default' ? (
+                    <button
+                      onClick={handleEnablePush}
+                      disabled={isSubscribing || !supabaseUserId}
+                      className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-semibold hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                    >
+                      {isSubscribing ? 'Enabling…' : 'Enable'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--glass-border)]" />
+
+          {/* Email Notifications */}
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+              <Bell className="w-5 h-5 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Email Notifications</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    Weekly digest every Monday morning
+                  </p>
+                </div>
+                <Switch
+                  checked={notifPrefs?.emailEnabled ?? true}
+                  disabled={!supabaseUserId}
+                  onCheckedChange={(value) =>
+                    updateNotificationPreferences({ clerkId: supabaseUserId!, emailEnabled: value }).catch(console.error)
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 

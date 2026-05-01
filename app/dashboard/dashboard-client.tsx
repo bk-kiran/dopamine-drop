@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -160,6 +160,12 @@ export function DashboardClient({ supabaseUserId }: DashboardClientProps) {
   const toggleUrgentAssignment = useMutation(api.assignments.toggleUrgent)
   const updateChallengeProgress = useMutation(api.challenges.updateChallengeProgress)
   const checkAndAwardAchievements = useMutation(api.achievements.checkAndAwardAchievements)
+  const updateLastSeen = useMutation(api.notifications.updateLastSeen)
+
+  // Record activity on mount so streak-reminder cron can detect inactivity
+  useEffect(() => {
+    updateLastSeen({ clerkId: supabaseUserId }).catch(console.error)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (dashboardData === undefined || assignments === undefined) {
     return (
