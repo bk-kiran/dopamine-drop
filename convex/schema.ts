@@ -23,6 +23,7 @@ export default defineSchema({
     avatarStorageId: v.optional(v.id('_storage')), // Convex file storage ID for profile photo
     hiddenCourses: v.optional(v.array(v.string())), // Array of Canvas course IDs
     hasCompletedInitialSync: v.optional(v.boolean()), // True after first Canvas sync + course selection
+    lastSeenAt: v.optional(v.number()), // Unix ms — updated on dashboard mount, used for streak reminders
 
     // Gamification
     totalPoints: v.optional(v.number()),
@@ -220,4 +221,27 @@ export default defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_user_and_reward', ['userId', 'rewardId']),
+
+  // Dedup log — prevents double-firing push notifications within a window
+  notificationLog: defineTable({
+    clerkId: v.string(),
+    taskId: v.string(), // stringified Convex _id, or "streak" sentinel
+    type: v.string(),   // "24hr" | "2hr" | "streak"
+    sentAt: v.number(), // Unix ms
+  }).index('by_clerk_task_type', ['clerkId', 'taskId', 'type']),
+
+  // Push notification subscriptions (one per browser/device per user)
+  pushSubscriptions: defineTable({
+    clerkId: v.string(),
+    endpoint: v.string(),
+    keys: v.object({ p256dh: v.string(), auth: v.string() }),
+    createdAt: v.number(),
+  }).index('by_clerk_id', ['clerkId']),
+
+  // Per-user notification preferences
+  notificationPreferences: defineTable({
+    clerkId: v.string(),
+    pushEnabled: v.boolean(),
+    emailEnabled: v.boolean(),
+  }).index('by_clerk_id', ['clerkId']),
 })
